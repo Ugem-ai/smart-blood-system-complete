@@ -1,0 +1,17 @@
+[Unit]
+Description=Smart Blood Queue Worker (notifications)
+After=network.target redis.service
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+RestartSec=5
+WorkingDirectory=/var/www/smart-blood
+ExecStart=/usr/bin/php artisan queue:work --queue=notifications --sleep=1 --tries=1 --timeout=120 --max-time=3600
+ExecReload=/bin/kill -USR2 $MAINPID
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,43 @@
+groups:
+  - name: smart-blood-emergency
+    interval: 30s
+    rules:
+      - alert: SmartBloodEmergencyRequestBacklogHigh
+        expr: smartblood_emergency_live_blood_requests > 25
+        for: 10m
+        labels:
+          severity: warning
+          service: smart-blood
+        annotations:
+          summary: "Smart Blood live request backlog is high"
+          description: "Live blood requests stayed above 25 for at least 10 minutes."
+
+      - alert: SmartBloodEmergencyDonorAlertsSpike
+        expr: smartblood_emergency_active_donor_alerts > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: smart-blood
+        annotations:
+          summary: "Smart Blood donor alerts are spiking"
+          description: "Active donor alerts in the last 30 minutes stayed above 100 for 5 minutes."
+
+      - alert: SmartBloodEmergencyAcceptanceStall
+        expr: increase(smartblood_emergency_accepted_requests[30m]) == 0 and smartblood_emergency_live_blood_requests > 0
+        for: 30m
+        labels:
+          severity: critical
+          service: smart-blood
+        annotations:
+          summary: "No accepted requests during active emergency demand"
+          description: "Accepted requests did not increase for 30 minutes while live blood requests are active."
+
+      - alert: SmartBloodEmergencyCompletionStall
+        expr: increase(smartblood_emergency_donations_completed[60m]) == 0 and smartblood_emergency_accepted_requests > 0
+        for: 60m
+        labels:
+          severity: critical
+          service: smart-blood
+        annotations:
+          summary: "No donation completions after accepted requests"
+          description: "Completed donations did not increase for 60 minutes while accepted requests are present."
