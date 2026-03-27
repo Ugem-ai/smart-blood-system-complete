@@ -58,8 +58,13 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            'pool' => [
+                'min' => env('DB_POOL_MIN', 2),
+                'max' => env('DB_POOL_MAX', 50),
+            ],
+            'sticky' => true,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+                \PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],
 
@@ -78,8 +83,13 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            'pool' => [
+                'min' => env('DB_POOL_MIN', 2),
+                'max' => env('DB_POOL_MAX', 50),
+            ],
+            'sticky' => true,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+                \PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],
 
