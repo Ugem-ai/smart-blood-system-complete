@@ -146,7 +146,7 @@ php artisan system:evaluate --days=30 --json=1
 All systems are:
 - Architecturally sound (layered, modular)
 - Securely configured (OWASP compliant, encrypted)
-- Thoroughly tested (23+ test files, 100+ assertions)
+- Thoroughly tested (123 tests, 601 assertions in latest full run; 1 known performance-threshold regression under active tuning)
 - Fully documented (13 docs + API reference)
 - Cloud-ready (deployment scripts for AWS, DigitalOcean)
 - Thesis-ready (Ph29 metrics pipeline implemented)

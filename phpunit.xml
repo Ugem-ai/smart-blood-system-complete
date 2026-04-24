@@ -31,5 +31,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="PASTMATCH_BENCHMARK_P95_MS" value="250"/>
+        <env name="HOSPITAL_REGISTRATION_CODE" value="test-hospital-code"/>
     </php>
 </phpunit>

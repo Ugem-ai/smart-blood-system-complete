@@ -8,7 +8,7 @@ Group=www-data
 Restart=always
 RestartSec=5
 WorkingDirectory=/var/www/smart-blood
-ExecStart=/usr/bin/php artisan queue:work --queue=matching --sleep=1 --tries=1 --timeout=120 --max-time=3600
+ExecStart=/usr/bin/php artisan queue:work --queue=matching --sleep=1 --tries=5 --backoff=10 --timeout=120 --max-time=3600
 ExecReload=/bin/kill -USR2 $MAINPID
 KillSignal=SIGTERM
 TimeoutStopSec=30

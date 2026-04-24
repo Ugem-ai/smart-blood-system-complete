@@ -1,59 +1,99 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Smart Blood System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Smart Blood System is a Laravel-based platform for emergency blood request coordination across donors, hospitals, and administrators.
 
-## About Laravel
+## Documentation Index
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### System Documentation
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- System overview: `docs/SYSTEM_OVERVIEW.md`
+- System architecture: `docs/SYSTEM_ARCHITECTURE.md`
+- Database schema: `docs/DATABASE_SCHEMA.md`
+- Algorithm explanation: `docs/ALGORITHM_PAST_MATCH.md`
+- API documentation: `docs/API_DOCUMENTATION.md`
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Developer Documentation
 
-## Learning Laravel
+- Developer guide: `docs/DEVELOPER_GUIDE.md`
+- Installation and environment setup: `docs/INSTALLATION_ENV_SETUP.md`
+- Deployment steps: `DEPLOYMENT.md`
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### User Documentation
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- Donor user guide: `docs/DONOR_USER_GUIDE.md`
+- Hospital user guide: `docs/HOSPITAL_USER_GUIDE.md`
+- Admin manual: `docs/ADMIN_MANUAL.md`
 
-## Laravel Sponsors
+### Operations and Validation
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- Monitoring and operational reference: `SYSTEM_DOCUMENTATION.md`
+- Load testing guide: `LOAD_TESTING.md`
+- **Implemented phases and roadmap (29 complete + Phase 30 planned):** `IMPLEMENTED_FEATURES_ALL_29_PHASES.md`
+- **Project completion summary:** `COMPLETION_SUMMARY.md`
 
-### Premium Partners
+### Product Roadmap
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+- **Phase 30 Future Expansion Plan:** Included in `COMPLETION_SUMMARY.md` and `IMPLEMENTED_FEATURES_ALL_29_PHASES.md`
+- Expansion tracks: national registry integration, AI demand prediction, route optimization, mobile app, government health interoperability
 
-## Contributing
+### Thesis & Deployment
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- **[Fast Start] Phase 29 Quick Reference:** `docs/QUICK_REFERENCE_PHASE29.md` (copy-paste deployment commands)
+- **Full Deployment Runbook:** `docs/THESIS_DEPLOYMENT_RUNBOOK.md` (complete 10-step guide for DigitalOcean + thesis evaluation)
+- **Thesis Results Template:** `docs/THESIS_CHAPTER4_TEMPLATE.md` (ready-to-use for Chapter 4 Results)
 
-## Code of Conduct
+## Quick Start
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --force
+composer run dev
+```
 
-## Security Vulnerabilities
+On Windows, `composer run dev` automatically skips Laravel Pail and starts the backend server, queue worker, and Vite dev server with a Windows-safe launcher.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Run tests:
 
-## License
+```bash
+php artisan test
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Phone Testing With ngrok
+
+To test the app on a phone without deploying it, build the frontend once and serve the Laravel app locally:
+
+```bash
+composer phone:test
+```
+
+Then expose the local server with ngrok in a separate terminal:
+
+```bash
+ngrok http 8000
+```
+
+Sync the current ngrok HTTPS URL into `.env` and clear Laravel config cache:
+
+```bash
+composer phone:sync-ngrok
+```
+
+Open the generated HTTPS ngrok URL on your phone. If login or session-based flows need the public URL reflected in Laravel, update `.env` temporarily:
+
+```env
+APP_URL=https://your-ngrok-subdomain.ngrok-free.app
+SANCTUM_STATEFUL_DOMAINS=your-ngrok-subdomain.ngrok-free.app
+SESSION_SECURE_COOKIE=true
+```
+
+Apply the config change with:
+
+```bash
+php artisan config:clear
+php artisan cache:clear
+```
+
+The `composer phone:sync-ngrok` command automates those `.env` updates for the currently running ngrok tunnel.

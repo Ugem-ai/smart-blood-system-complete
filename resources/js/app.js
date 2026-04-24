@@ -1,7 +1,15 @@
 import './bootstrap';
+import { createApp } from 'vue';
+import router from './router';
+import App from './App.vue';
+import { registerDeviceToken, startDeviceTokenRefresh } from './lib/deviceToken';
 
-import Alpine from 'alpinejs';
+const app = createApp(App);
 
-window.Alpine = Alpine;
+app.use(router);
+app.mount('#app');
 
-Alpine.start();
+registerDeviceToken().catch(() => {
+	// Best effort only.
+});
+startDeviceTokenRefresh();

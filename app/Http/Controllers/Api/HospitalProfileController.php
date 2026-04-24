@@ -8,6 +8,8 @@ use App\Models\Hospital;
 use App\Models\User;
 use App\Services\HospitalInviteCodeService;
 use App\Services\InventoryMonitoringService;
+use App\Services\EmergencyBroadcastModeService;
+use App\Services\SystemSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -127,6 +129,71 @@ class HospitalProfileController extends Controller
                     'completed_requests' => $hospital->bloodRequests()->where('status', 'completed')->count(),
                     'recent_requests' => $bloodRequests,
                 ],
+            ],
+        ]);
+    }
+
+    public function activityLog(Request $request): JsonResponse
+    {
+        $hospital = $request->user()->hospitalProfile;
+
+        if (! $hospital) {
+            return response()->json(['message' => 'Hospital profile not found.'], 404);
+        }
+
+        $perPage = min(100, max(5, (int) $request->integer('per_page', 20)));
+        $requestIds = $hospital->bloodRequests()->pluck('id');
+
+        $logs = ActivityLog::query()
+            ->with('actor:id,name,email,role')
+            ->where(function ($query) use ($hospital, $requestIds) {
+                $query->where('details->hospital_id', $hospital->id);
+
+                if ($requestIds->isNotEmpty()) {
+                    $query->orWhereIn('details->blood_request_id', $requestIds->all());
+                    $query->orWhereIn('details->request_id', $requestIds->all());
+                    $query->orWhereIn('details->target_id', $requestIds->all());
+                }
+            })
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => $logs,
+        ]);
+    }
+
+    public function settingsSnapshot(
+        Request $request,
+        SystemSettingsService $systemSettingsService,
+        EmergencyBroadcastModeService $emergencyBroadcastModeService
+    ): JsonResponse {
+        $hospital = $request->user()->hospitalProfile;
+
+        if (! $hospital) {
+            return response()->json(['message' => 'Hospital profile not found.'], 404);
+        }
+
+        $settings = $systemSettingsService->current();
+
+        return response()->json([
+            'data' => [
+                'hospital_scope' => [
+                    'hospital_id' => $hospital->id,
+                    'hospital_name' => $hospital->hospital_name,
+                    'status' => $hospital->status,
+                ],
+                'system_settings' => [
+                    'urgency_threshold' => $settings['urgency_threshold'],
+                    'notification_rule' => $settings['notification_rule'],
+                    'past_match_weights' => $settings['past_match_weights'],
+                    'past_match_weight_profiles' => $settings['past_match_weight_profiles'],
+                    'control_center' => $settings['control_center'],
+                    'updated_at' => $settings['updated_at'],
+                    'updated_by_name' => $settings['updated_by_name'],
+                ],
+                'emergency_mode' => $emergencyBroadcastModeService->state(),
+                'disaster_response_mode' => $emergencyBroadcastModeService->disasterResponseState(),
             ],
         ]);
     }

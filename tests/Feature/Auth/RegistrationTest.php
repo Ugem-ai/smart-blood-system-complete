@@ -23,9 +23,13 @@ class RegistrationTest extends TestCase
             'email' => 'test@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
+            'blood_type' => 'O+',
+            'city' => 'Lagos',
+            'contact_number' => '08000000000',
+            'privacy_consent' => '1',
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('donor.dashboard', absolute: false));
     }
 }

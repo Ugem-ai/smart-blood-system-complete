@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Donor;
+use App\Models\RequestMatch;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Collection;
@@ -23,14 +24,15 @@ class DonorFilterService
      * Filter donors by blood compatibility, availability, donation interval,
      * and distance limit (Haversine) when request coordinates are available.
      *
-    * @return Collection<int, array{donor: Donor, distance_km: float|null, estimated_travel_minutes: float, traffic_condition: string, traffic_multiplier: float, transport_accessibility_score: float, fastest_arrival_score: float}>
+    * @return Collection<int, array{donor: Donor, distance_km: float|null, estimated_travel_minutes: float, traffic_condition: string, traffic_multiplier: float, transport_accessibility_score: float, fastest_arrival_score: float, location_source: string, location_confidence: float}>
      */
     public function filterForRequest(
         string $requestedBloodType,
         ?float $requestLatitude,
         ?float $requestLongitude,
         ?int $distanceLimitKm = null,
-        ?string $requestCity = null
+        ?string $requestCity = null,
+        ?int $excludingRequestId = null
     ): Collection {
         $distanceLimitKm ??= self::DEFAULT_DISTANCE_LIMIT_KM;
 
@@ -63,10 +65,12 @@ class DonorFilterService
                     ->orWhereDate('last_donation_date', '<=', now()->subDays(self::MIN_DONATION_INTERVAL_DAYS)->toDateString());
             });
 
-        $reservedDonorIds = $this->donorAllocationService->reservedDonorIds();
+        $reservedDonorIds = $this->donorAllocationService->reservedDonorIds($excludingRequestId);
         if ($reservedDonorIds !== []) {
             $query->whereNotIn('id', $reservedDonorIds);
         }
+
+        $normalizedRequestCity = $this->normalizeCity($requestCity);
 
         if ($this->hasCoordinates($requestLatitude, $requestLongitude)) {
             [$minLat, $maxLat, $minLon, $maxLon] = $this->boundingBox(
@@ -75,11 +79,34 @@ class DonorFilterService
                 (float) $distanceLimitKm
             );
 
-            $query->whereBetween('latitude', [$minLat, $maxLat])
-                ->whereBetween('longitude', [$minLon, $maxLon]);
+            $query->where(function ($locationQuery) use ($minLat, $maxLat, $minLon, $maxLon, $normalizedRequestCity) {
+                $locationQuery->where(function ($coordinateQuery) use ($minLat, $maxLat, $minLon, $maxLon) {
+                    $coordinateQuery->whereBetween('latitude', [$minLat, $maxLat])
+                        ->whereBetween('longitude', [$minLon, $maxLon]);
+                });
+
+                if ($normalizedRequestCity !== '') {
+                    $locationQuery->orWhere(function ($fallbackQuery) use ($normalizedRequestCity) {
+                        $fallbackQuery
+                            ->where(function ($missingCoordinatesQuery) {
+                                $missingCoordinatesQuery->whereNull('latitude')
+                                    ->orWhereNull('longitude');
+                            })
+                            ->whereRaw('LOWER(TRIM(city)) = ?', [$normalizedRequestCity]);
+                    });
+                }
+            });
         }
 
         $donors = $query->get();
+
+        // Batch-load the last match timestamp for each candidate.
+        // Used by PASTMatch to apply a fairness cooldown penalty to recently-queued donors.
+        $lastMatchedMap = RequestMatch::whereIn('donor_id', $donors->pluck('id'))
+            ->selectRaw('donor_id, MAX(created_at) as last_matched_at')
+            ->groupBy('donor_id')
+            ->pluck('last_matched_at', 'donor_id')
+            ->map(fn ($ts) => $ts ? Carbon::parse($ts) : null);
 
         $locationMapQuery = fn () => Donor::query()
             ->select(['id', 'latitude', 'longitude'])
@@ -100,7 +127,7 @@ class DonorFilterService
             : Cache::remember('donors:locations:v1', now()->addMinutes(5), $locationMapQuery);
 
         return $donors
-            ->filter(function (Donor $donor) use ($requestLatitude, $requestLongitude, $distanceLimitKm, $locationCache) {
+            ->filter(function (Donor $donor) use ($requestLatitude, $requestLongitude, $distanceLimitKm, $locationCache, $requestCity) {
                 if (! $this->hasCoordinates($requestLatitude, $requestLongitude)) {
                     return true;
                 }
@@ -110,7 +137,13 @@ class DonorFilterService
                 $donorLon = $cached['longitude'] ?? null;
 
                 if (! $this->hasCoordinates($donorLat, $donorLon)) {
-                    return false;
+                    $estimatedDistance = $this->travelIntelligenceService->estimateDistanceFromCityContext(
+                        $requestCity,
+                        $donor->city,
+                        (float) $distanceLimitKm
+                    );
+
+                    return $estimatedDistance !== null && $estimatedDistance <= $distanceLimitKm;
                 }
 
                 $distance = $this->haversineDistanceKm(
@@ -122,8 +155,10 @@ class DonorFilterService
 
                 return $distance <= $distanceLimitKm;
             })
-            ->map(function (Donor $donor) use ($requestLatitude, $requestLongitude, $locationCache, $requestCity) {
+            ->map(function (Donor $donor) use ($requestLatitude, $requestLongitude, $locationCache, $requestCity, $distanceLimitKm, $lastMatchedMap) {
                 $distance = null;
+                $locationSource = 'unknown';
+                $locationConfidence = 35.0;
 
                 $cached = $locationCache[$donor->id] ?? null;
                 $donorLat = $cached['latitude'] ?? null;
@@ -138,6 +173,20 @@ class DonorFilterService
                         (float) $donorLat,
                         (float) $donorLon
                     );
+
+                    $locationSource = 'coordinates';
+                    $locationConfidence = 100.0;
+                } elseif ($this->hasCoordinates($requestLatitude, $requestLongitude)) {
+                    $distance = $this->travelIntelligenceService->estimateDistanceFromCityContext(
+                        $requestCity,
+                        $donor->city,
+                        (float) $distanceLimitKm
+                    );
+
+                    if ($distance !== null) {
+                        $locationSource = 'city-estimated';
+                        $locationConfidence = 55.0;
+                    }
                 }
 
                 $travel = $this->travelIntelligenceService->analyze(
@@ -155,6 +204,9 @@ class DonorFilterService
                     'traffic_multiplier' => $travel['traffic_multiplier'],
                     'transport_accessibility_score' => $travel['transport_accessibility_score'],
                     'fastest_arrival_score' => $travel['fastest_arrival_score'],
+                    'location_source' => $locationSource,
+                    'location_confidence' => $locationConfidence,
+                    'last_matched_at' => $lastMatchedMap[$donor->id] ?? null,
                 ];
             })
             ->values();
@@ -209,6 +261,11 @@ class DonorFilterService
     protected function hasCoordinates(?float $latitude, ?float $longitude): bool
     {
         return $latitude !== null && $longitude !== null;
+    }
+
+    protected function normalizeCity(?string $city): string
+    {
+        return strtolower(trim((string) $city));
     }
 
     /**

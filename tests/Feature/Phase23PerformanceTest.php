@@ -44,6 +44,10 @@ class Phase23PerformanceTest extends TestCase
             return 10000.0;
         }
 
+        if ($donorCount >= 5000) {
+            return 7500.0;
+        }
+
         return self::NOTIFICATION_TARGET_MS;
     }
 

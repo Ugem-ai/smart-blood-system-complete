@@ -1,3 +1,65 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+	.admin-page {
+		@apply relative mx-auto flex max-w-[96rem] flex-col gap-6 overflow-hidden pb-4;
+	}
+
+	.admin-hero {
+		@apply relative overflow-hidden border p-6 shadow-sm backdrop-blur;
+		border-radius: 2rem;
+		border-color: rgb(254 226 226);
+		background-image: radial-gradient(circle at top left, rgba(254, 226, 226, 0.94), rgba(255, 255, 255, 0.98) 42%, rgba(248, 250, 252, 1) 100%);
+	}
+
+	.admin-hero-row {
+		@apply flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between;
+	}
+
+	.admin-kicker {
+		@apply text-xs font-black uppercase tracking-[0.28em] text-red-500;
+	}
+
+	.admin-title {
+		@apply mt-2 text-3xl font-black tracking-tight text-gray-950;
+	}
+
+	.admin-description {
+		@apply mt-2 max-w-3xl text-sm leading-6 text-gray-600;
+	}
+
+	.admin-toolbar {
+		@apply flex flex-wrap items-center gap-2 border border-white/80 bg-white/85 p-4 shadow-sm backdrop-blur;
+		border-radius: 1.5rem;
+	}
+
+	.admin-panel {
+		@apply rounded-[2rem] border border-gray-200 bg-white/95 p-5 shadow-sm backdrop-blur;
+	}
+
+	.admin-surface {
+		@apply overflow-hidden rounded-[2rem] border border-gray-200 bg-white/95 shadow-sm backdrop-blur;
+	}
+
+	.admin-input {
+		@apply w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition;
+	}
+
+	.admin-input:focus {
+		@apply border-red-400 bg-white ring-4 ring-red-100;
+	}
+
+	.admin-button-primary {
+		@apply rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	.admin-button-secondary {
+		@apply rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	.admin-button-danger-soft {
+		@apply rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+}

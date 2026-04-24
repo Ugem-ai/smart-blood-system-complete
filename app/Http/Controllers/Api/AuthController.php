@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Donor;
 use App\Models\Hospital;
 use App\Models\User;
@@ -111,6 +112,18 @@ class AuthController extends Controller
 
         $token = $user->createToken('api-token')->plainTextToken;
 
+        ActivityLog::record($user->id, 'auth.registration.succeeded', [
+            'status' => 'success',
+            'severity' => 'info',
+            'category' => 'authentication',
+            'actor_role' => $user->role,
+            'target_type' => $validated['role'],
+            'target_id' => $user->id,
+            'target_label' => $user->email,
+            'ip' => $request->ip(),
+            'user_agent' => (string) $request->userAgent(),
+        ]);
+
         return response()->json([
             'message' => 'Registration successful.',
             'token' => $token,
@@ -129,14 +142,52 @@ class AuthController extends Controller
         $user = User::query()->where('email', $validated['email'])->first();
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
+            ActivityLog::record($user?->id, 'auth.login.failed', [
+                'status' => 'failed',
+                'severity' => 'high',
+                'category' => 'authentication',
+                'email' => $validated['email'],
+                'reason' => 'invalid_credentials',
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+                'target_type' => 'user',
+                'target_id' => $user?->id,
+                'target_label' => $validated['email'],
+            ]);
+
             return response()->json(['message' => 'Invalid credentials.'], 422);
         }
 
         if ($user->role === 'hospital' && $user->hospitalProfile?->status !== 'approved') {
+            ActivityLog::record($user->id, 'auth.login.blocked', [
+                'status' => 'blocked',
+                'severity' => 'medium',
+                'category' => 'authentication',
+                'actor_role' => $user->role,
+                'reason' => 'hospital_pending_approval',
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+                'target_type' => 'hospital',
+                'target_id' => $user->hospitalProfile?->id,
+                'target_label' => $user->email,
+            ]);
+
             return response()->json(['message' => 'Hospital account is pending admin approval or has been rejected.'], 403);
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
+
+        ActivityLog::record($user->id, 'auth.login.succeeded', [
+            'status' => 'success',
+            'severity' => 'info',
+            'category' => 'authentication',
+            'actor_role' => $user->role,
+            'ip' => $request->ip(),
+            'user_agent' => (string) $request->userAgent(),
+            'target_type' => 'user',
+            'target_id' => $user->id,
+            'target_label' => $user->email,
+        ]);
 
         return response()->json([
             'message' => 'Login successful.',
@@ -148,7 +199,23 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()?->delete();
+        $user = $request->user();
+
+        $user?->currentAccessToken()?->delete();
+
+        if ($user) {
+            ActivityLog::record($user->id, 'auth.logout.succeeded', [
+                'status' => 'success',
+                'severity' => 'info',
+                'category' => 'authentication',
+                'actor_role' => $user->role,
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+                'target_type' => 'user',
+                'target_id' => $user->id,
+                'target_label' => $user->email,
+            ]);
+        }
 
         return response()->json(['message' => 'Logout successful.']);
     }

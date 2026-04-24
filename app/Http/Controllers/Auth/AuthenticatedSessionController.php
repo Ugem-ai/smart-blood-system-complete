@@ -16,7 +16,7 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
-        return view('auth.login');
+        return view('app');
     }
 
     /**
@@ -26,9 +26,29 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
+        if ($request->user()->role === 'hospital') {
+            $hospitalStatus = $request->user()->hospitalProfile?->status;
+
+            if ($hospitalStatus !== 'approved') {
+                Auth::guard('web')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Hospital account is pending admin approval or has been rejected.',
+                ]);
+            }
+        }
+
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $dashboardPath = match ($request->user()->role) {
+            'hospital' => '/dashboard',
+            'admin' => '/admin/dashboard',
+            default => '/donor/dashboard',
+        };
+
+        return redirect()->intended($dashboardPath);
     }
 
     /**
