@@ -9,8 +9,11 @@ FROM php:8.2-cli AS builder
 WORKDIR /app
 
 # Install build dependencies (will be discarded in runtime stage)
+# Critical: Must include ALL *-dev packages before extension compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    autoconf \
+    pkg-config \
     libzip-dev \
     libpng-dev \
     libjpeg-dev \
@@ -22,21 +25,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure and install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
-    docker-php-ext-install \
-        pdo \
-        pdo_mysql \
-        pdo_pgsql \
-        pdo_sqlite \
-        mbstring \
-        zip \
-        gd \
-        xml \
-        bcmath \
-        tokenizer \
-        ctype \
-        fileinfo
+# Configure GD extension with all required components BEFORE installation
+# Order matters: configure MUST run before install
+RUN docker-php-ext-configure gd \
+    --with-freetype=/usr/include/freetype2 \
+    --with-jpeg=/usr/include
+
+# Install PHP extensions in correct order (PDO drivers before other extensions)
+# pdo must be installed first (other pdo_* depend on it)
+RUN docker-php-ext-install -j$(nproc) \
+    pdo \
+    pdo_mysql \
+    pdo_pgsql \
+    pdo_sqlite \
+    mbstring \
+    zip \
+    gd \
+    xml \
+    bcmath \
+    ctype \
+    fileinfo \
+    tokenizer
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -70,6 +79,7 @@ FROM php:8.2-cli
 WORKDIR /app
 
 # Install runtime dependencies only (minimal footprint)
+# ONLY runtime libraries, NO *-dev packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -84,11 +94,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy built PHP extensions from builder stage
+# Copy compiled PHP extensions from builder stage
 COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
 COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 
-# Enable PHP extensions (don't recompile, just enable)
+# Enable PHP extensions (load pre-compiled extensions, no compilation)
 RUN docker-php-ext-enable \
     pdo \
     pdo_mysql \
@@ -99,9 +109,13 @@ RUN docker-php-ext-enable \
     gd \
     xml \
     bcmath \
-    tokenizer \
     ctype \
-    fileinfo
+    fileinfo \
+    tokenizer
+
+# Verify extensions are loaded properly
+RUN php -m | grep -E 'pdo|pdo_mysql|pdo_pgsql|pdo_sqlite' || \
+    (echo "ERROR: Required extensions not loaded!" && exit 1)
 
 # Set production-safe PHP configuration
 RUN { \
@@ -111,6 +125,7 @@ RUN { \
     echo "memory_limit = 256M"; \
     echo "display_errors = Off"; \
     echo "log_errors = On"; \
+    echo "error_log = /var/log/php_errors.log"; \
     } > /usr/local/etc/php/conf.d/laravel.ini
 
 # Copy entire application from builder stage
