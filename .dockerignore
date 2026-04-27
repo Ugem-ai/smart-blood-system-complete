@@ -1,0 +1,76 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE & Editor configs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+.env.local
+.env.*.local
+
+# Dependencies (will be installed in Docker)
+node_modules
+vendor
+composer.lock
+
+# Build artifacts
+dist
+build
+*.map
+
+# Logs and temp files
+storage/logs/*
+storage/app/*
+!storage/app/.gitkeep
+!storage/logs/.gitkeep
+bootstrap/cache/*
+!bootstrap/cache/.gitkeep
+*.log
+npm-debug.log
+yarn-error.log
+
+# Testing
+tests
+phpunit.xml
+.phpunit.result.cache
+coverage
+.coverage
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Development & Documentation
+docs
+DEPLOYMENT.md
+QUICK_START.md
+START_HERE.md
+SYSTEM_DOCUMENTATION.md
+*.md
+CHECKLIST.md
+COMMANDS.txt
+*.bat
+*.ps1
+diagnostic*.php
+check_sms_error.php
+
+# Database files (use volumes or cloud DB instead)
+*.sqlite
+*.sqlite3
+
+# NPM/Node (use separate step if needed)
+npm-debug.log*
+yarn-debug.log*
+
+# Package managers cache
+.cache
+.npm
+yarn.lock
+
+# Render specific
+render.yaml

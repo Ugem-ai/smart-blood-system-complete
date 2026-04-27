@@ -1,0 +1,102 @@
+services:
+  - type: web
+    name: smart-blood
+    env: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon  # Change if needed (singapore, ireland, frankfurt, oregon)
+    plan: starter  # starter (free), standard, pro
+    
+    autoDeploy: true  # Redeploy on git push
+    
+    envVars:
+      # Laravel Core Configuration
+      - key: APP_NAME
+        value: SmartBlood
+      
+      - key: APP_ENV
+        value: production
+      
+      - key: APP_DEBUG
+        value: false
+      
+      - key: APP_KEY
+        sync: false
+        # IMPORTANT: Generate locally with: php artisan key:generate
+        # Copy the base64:xxxxx value here
+      
+      - key: APP_URL
+        fromService:
+          name: smart-blood
+          property: url
+      
+      - key: APP_LOCALE
+        value: en
+      
+      # Database Configuration (SQLite - No external DB needed)
+      - key: DB_CONNECTION
+        value: sqlite
+      
+      - key: DB_DATABASE
+        value: /app/storage/database.sqlite
+      
+      # For MySQL, uncomment below and set accordingly:
+      # - key: DB_CONNECTION
+      #   value: mysql
+      # - key: DB_HOST
+      #   value: your-db-host.render.com
+      # - key: DB_PORT
+      #   value: 3306
+      # - key: DB_DATABASE
+      #   value: your_db_name
+      # - key: DB_USERNAME
+      #   value: your_user
+      # - key: DB_PASSWORD
+      #   sync: false
+      
+      # Session & Cache
+      - key: SESSION_DRIVER
+        value: file
+      
+      - key: CACHE_DRIVER
+        value: file
+      
+      - key: QUEUE_CONNECTION
+        value: sync
+      
+      # Security
+      - key: SANCTUM_TOKEN_EXPIRATION
+        value: 120
+      
+      - key: BCRYPT_ROUNDS
+        value: 12
+      
+      # Logging
+      - key: LOG_CHANNEL
+        value: stack
+      
+      - key: LOG_LEVEL
+        value: info
+      
+      # Philippine Red Cross Configuration
+      - key: PRC_ADMIN_EMAIL_DOMAINS
+        value: redcross.org.ph,prc.org.ph
+      
+      - key: HOSPITAL_EMAIL_DOMAINS
+        value: ""
+      
+      - key: HOSPITAL_REGISTRATION_CODE
+        value: ""
+    
+    # Persistent storage for database and logs
+    disk:
+      name: smart-blood-data
+      mountPath: /app/storage
+      sizeGB: 2
+
+# Uncomment if you need a database (requires paid Render account)
+# databases:
+#   - name: smart-blood-db
+#     databaseName: smart_blood_db
+#     user: smart_blood_user
+#     plan: starter
+#     region: oregon
