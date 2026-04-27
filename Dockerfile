@@ -1,15 +1,14 @@
 # =============================================================================
 # Smart Blood System - Docker Build for Render Deployment
-# PHP 8.2 with Laravel 12
+# PHP 8.2 with Laravel 12 - Production-Ready & Optimized
 # =============================================================================
 
-# Stage 1: Build stage
+# Stage 1: Builder - Compile dependencies
 FROM php:8.2-cli AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies required for PHP extensions
+# Install build dependencies (will be discarded in runtime stage)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libzip-dev \
@@ -18,32 +17,34 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
+    libpq-dev \
     git \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions required for Laravel
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-    pdo \
-    pdo_mysql \
-    pdo_sqlite \
-    mbstring \
-    zip \
-    gd \
-    xml \
-    bcmath \
-    tokenizer \
-    ctype \
-    fileinfo
+# Configure and install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
+    docker-php-ext-install \
+        pdo \
+        pdo_mysql \
+        pdo_pgsql \
+        pdo_sqlite \
+        mbstring \
+        zip \
+        gd \
+        xml \
+        bcmath \
+        tokenizer \
+        ctype \
+        fileinfo
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copy composer files
+# Copy only composer files (for layer caching)
 COPY composer.json composer.lock* ./
 
-# Install PHP dependencies (production only)
+# Install PHP dependencies (production only, with optimizations)
 RUN composer install \
     --no-interaction \
     --no-dev \
@@ -54,43 +55,44 @@ RUN composer install \
 # Copy entire project
 COPY . .
 
-# Generate optimized Laravel files
-RUN php artisan optimize:clear || true
-RUN php artisan config:cache
-RUN php artisan route:cache
-RUN php artisan view:cache
-
-# Create necessary directories with proper permissions
-RUN mkdir -p storage/logs \
-    && mkdir -p bootstrap/cache \
-    && chmod -R 777 storage \
-    && chmod -R 777 bootstrap/cache
+# Pre-warm Laravel caches and optimizations
+RUN mkdir -p storage/logs bootstrap/cache && \
+    php artisan optimize:clear 2>/dev/null || true && \
+    php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache 2>/dev/null || true
 
 # =============================================================================
-# Stage 2: Runtime stage (smaller final image)
+# Stage 2: Runtime - Minimal production image
 # =============================================================================
 FROM php:8.2-cli
 
 WORKDIR /app
 
-# Install only runtime dependencies (much smaller footprint)
+# Install runtime dependencies only (minimal footprint)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libzip4 \
-    libpng6 \
+    ca-certificates \
+    curl \
+    git \
+    sqlite3 \
+    libzip5 \
+    libpng16-16 \
     libjpeg62-turbo \
     libfreetype6 \
     libonig5 \
     libxml2 \
-    git \
-    curl \
-    sqlite3 \
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions (runtime versions only)
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
+# Copy built PHP extensions from builder stage
+COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
+COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
+
+# Enable PHP extensions (don't recompile, just enable)
+RUN docker-php-ext-enable \
     pdo \
     pdo_mysql \
+    pdo_pgsql \
     pdo_sqlite \
     mbstring \
     zip \
@@ -101,32 +103,35 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     ctype \
     fileinfo
 
-# Copy PHP configuration for production
-RUN echo "max_execution_time = 300" >> /usr/local/etc/php/conf.d/laravel.ini \
-    && echo "upload_max_filesize = 50M" >> /usr/local/etc/php/conf.d/laravel.ini \
-    && echo "post_max_size = 50M" >> /usr/local/etc/php/conf.d/laravel.ini \
-    && echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/laravel.ini
+# Set production-safe PHP configuration
+RUN { \
+    echo "max_execution_time = 300"; \
+    echo "upload_max_filesize = 50M"; \
+    echo "post_max_size = 50M"; \
+    echo "memory_limit = 256M"; \
+    echo "display_errors = Off"; \
+    echo "log_errors = On"; \
+    } > /usr/local/etc/php/conf.d/laravel.ini
 
-# Copy application from builder stage
+# Copy entire application from builder stage
 COPY --from=builder /app /app
 
-# Create and set proper permissions
-RUN mkdir -p storage/logs bootstrap/cache database \
-    && chmod -R 775 storage \
-    && chmod -R 775 bootstrap/cache \
-    && chmod -R 775 database
+# Create required directories with secure permissions (755 = rwxr-xr-x)
+RUN mkdir -p storage/logs storage/app bootstrap/cache database && \
+    chmod -R 755 storage bootstrap/cache database
 
-# Create a non-root user for security
-RUN useradd -m -u 1000 laravel \
-    && chown -R laravel:laravel /app
+# Create non-root user for security (UID 1000 = standard unprivileged)
+RUN useradd -m -u 1000 laravel && \
+    chown -R laravel:laravel /app
+
 USER laravel
 
 # Expose port for Render
 EXPOSE 10000
 
-# Health check
+# Health check (tests if Laravel server is responding)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:10000/health || exit 1
 
-# Start Laravel development server on 0.0.0.0:10000
+# Start Laravel development server on 0.0.0.0:10000 (required for Docker/Render)
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
