@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
+    libsqlite3-dev \
     git \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -85,6 +86,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     sqlite3 \
+    libsqlite3-0 \
     libzip5 \
     libpng16-16 \
     libjpeg62-turbo \
