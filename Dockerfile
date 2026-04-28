@@ -1,5 +1,5 @@
 # =============================================================================
-# Smart Blood System - Docker Build for Render Deployment
+# Smart Blood System - Docker Build for Render Deployment (PostgreSQL Only)
 # PHP 8.2 with Laravel 12 - Production-Ready & Optimized
 # =============================================================================
 
@@ -9,7 +9,7 @@ FROM php:8.2-cli AS builder
 WORKDIR /app
 
 # Install build dependencies (will be discarded in runtime stage)
-# Critical: Must include ALL *-dev packages before extension compilation
+# PostgreSQL-only setup: minimal, focused dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     autoconf \
@@ -21,9 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
-    libsqlite3-dev \
     git \
     curl \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure GD extension with all required components BEFORE installation
@@ -32,21 +32,15 @@ RUN docker-php-ext-configure gd \
     --with-freetype=/usr/include/freetype2 \
     --with-jpeg=/usr/include
 
-# Install PHP extensions in correct order (PDO drivers before other extensions)
-# pdo must be installed first (other pdo_* depend on it)
+# Install ONLY required PHP extensions (PostgreSQL-focused)
+# Lean extension set: pdo_pgsql + essential Laravel requirements
 RUN docker-php-ext-install -j$(nproc) \
-    pdo \
-    pdo_mysql \
     pdo_pgsql \
-    pdo_sqlite \
     mbstring \
     zip \
     gd \
     xml \
-    bcmath \
-    ctype \
-    fileinfo \
-    tokenizer
+    bcmath
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -73,20 +67,18 @@ RUN mkdir -p storage/logs bootstrap/cache && \
     php artisan view:cache 2>/dev/null || true
 
 # =============================================================================
-# Stage 2: Runtime - Minimal production image
+# Stage 2: Runtime - Minimal production image (PostgreSQL-only)
 # =============================================================================
 FROM php:8.2-cli
 
 WORKDIR /app
 
-# Install runtime dependencies only (minimal footprint)
-# ONLY runtime libraries, NO *-dev packages
+# Install runtime dependencies ONLY (minimal, PostgreSQL-focused footprint)
+# NO *-dev packages, NO database tools (except PostgreSQL client)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     git \
-    sqlite3 \
-    libsqlite3-0 \
     libzip5 \
     libpng16-16 \
     libjpeg62-turbo \
@@ -100,24 +92,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
 COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 
-# Enable PHP extensions (load pre-compiled extensions, no compilation)
+# Enable PostgreSQL extension (load pre-compiled, no compilation needed)
 RUN docker-php-ext-enable \
-    pdo \
-    pdo_mysql \
     pdo_pgsql \
-    pdo_sqlite \
     mbstring \
     zip \
     gd \
     xml \
-    bcmath \
-    ctype \
-    fileinfo \
-    tokenizer
+    bcmath
 
-# Verify extensions are loaded properly
-RUN php -m | grep -E 'pdo|pdo_mysql|pdo_pgsql|pdo_sqlite' || \
-    (echo "ERROR: Required extensions not loaded!" && exit 1)
+# Verify PostgreSQL extension is loaded (critical for Render)
+RUN php -m | grep -i pdo_pgsql || \
+    (echo "ERROR: pdo_pgsql extension not loaded!" && exit 1)
 
 # Set production-safe PHP configuration
 RUN { \
