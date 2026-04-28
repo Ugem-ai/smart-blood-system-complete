@@ -59,12 +59,19 @@ RUN composer install \
 # Copy entire project
 COPY . .
 
-# Pre-warm Laravel caches and optimizations
-RUN mkdir -p storage/logs bootstrap/cache && \
-    php artisan optimize:clear 2>/dev/null || true && \
-    php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan view:cache 2>/dev/null || true
+# DO NOT run Laravel cache commands here!
+# Reason: Environment variables are NOT available at build time
+# These MUST be run at runtime when Render injects environment variables
+# Attempting to cache config/routes before deployment causes:
+# - Missing environment variable errors
+# - Stale cached values on deployment
+# - Application failures on startup
+#
+# Cache warming will happen automatically on first request (Laravel 12)
+# Or explicitly run via: php artisan optimize (at runtime)
+#
+# Create required directories only
+RUN mkdir -p storage/logs bootstrap/cache
 
 # =============================================================================
 # Stage 2: Runtime - Minimal production image (PostgreSQL-only)
@@ -119,9 +126,14 @@ RUN { \
 # Copy entire application from builder stage
 COPY --from=builder /app /app
 
-# Create required directories with secure permissions (755 = rwxr-xr-x)
+# Create required directories with proper writable permissions
+# 775 = rwxrwxr-x (owner+group can write, others read-only)
+# Storage and bootstrap/cache MUST be writable for Laravel to:
+# - Create log files (storage/logs)
+# - Store cached views, sessions, etc.
+# - Store uploaded files
 RUN mkdir -p storage/logs storage/app bootstrap/cache database && \
-    chmod -R 755 storage bootstrap/cache database
+    chmod -R 775 storage bootstrap/cache
 
 # Create non-root user for security (UID 1000 = standard unprivileged)
 RUN useradd -m -u 1000 laravel && \
@@ -132,9 +144,12 @@ USER laravel
 # Expose port for Render
 EXPOSE 10000
 
-# Health check (tests if Laravel server is responding)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:10000/health || exit 1
+# Note: Healthcheck removed for production safety
+# Reason: Healthcheck attempts to hit /health endpoint which may not exist
+# Render will automatically health-check by monitoring if port 10000 is responding
+# If needed in future, add explicit /health route to Laravel and uncomment below:
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+#     CMD curl -f http://localhost:10000/health || exit 1
 
 # Start Laravel development server on 0.0.0.0:10000 (required for Docker/Render)
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
