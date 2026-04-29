@@ -54,7 +54,8 @@ RUN composer install \
     --no-dev \
     --prefer-dist \
     --optimize-autoloader \
-    --classmap-authoritative
+    --classmap-authoritative \
+    --no-scripts
 
 # Copy entire project
 COPY . .
@@ -152,4 +153,10 @@ EXPOSE 10000
 #     CMD curl -f http://localhost:10000/health || exit 1
 
 # Start Laravel development server on 0.0.0.0:10000 (required for Docker/Render)
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
+# Run Laravel optimization commands at runtime when environment variables are available
+# These MUST run here (not at build time) because they require DB/config environment vars
+CMD sh -c "php artisan package:discover && \
+    php artisan config:clear && \
+    php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan serve --host=0.0.0.0 --port=10000"
