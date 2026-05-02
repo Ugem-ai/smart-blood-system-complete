@@ -54,7 +54,6 @@ RUN composer install \
     --no-dev \
     --prefer-dist \
     --optimize-autoloader \
-    --classmap-authoritative \
     --no-scripts
 
 # Copy entire project
@@ -156,8 +155,5 @@ EXPOSE 10000
 # Run Laravel optimization commands at runtime when environment variables are available
 # These MUST run here (not at build time) because they require DB/config environment vars
 CMD sh -c "php artisan package:discover && \
-    php artisan config:clear && \
-    php artisan config:cache && \
-    php artisan route:cache && \
     php artisan migrate --force && \
     php artisan serve --host=0.0.0.0 --port=10000"
