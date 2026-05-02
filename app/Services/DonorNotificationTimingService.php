@@ -267,6 +267,6 @@ class DonorNotificationTimingService
     {
         return DB::connection()->getDriverName() === 'sqlite'
             ? "CAST(strftime('%H', responded_at) AS INTEGER)"
-            : 'HOUR(responded_at)';
+            : 'EXTRACT(HOUR FROM responded_at)';
     }
 }
