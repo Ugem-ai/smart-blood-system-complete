@@ -30,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Only force HTTPS URL generation when the incoming request is already secure.
         // This prevents local/LAN HTTP runs from producing https://127.0.0.1 asset URLs.
-        if (request()->isSecure() && str_starts_with((string) config('app.url'), 'https://')) {
+        if ( config('app.url')== 'production') {
             URL::forceScheme('https');
         }
 
