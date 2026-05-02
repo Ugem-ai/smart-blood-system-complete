@@ -12,7 +12,6 @@ return new class extends Migration
             $table->string('contact_number', 500)->change();
             $table->string('contact_person', 500)->change();
             $table->string('password', 500)->change();
-            $table->string('address', 500)->change();
             $table->string('location', 500)->change();
             $table->string('email', 500)->change();
         });
@@ -24,7 +23,6 @@ return new class extends Migration
             $table->string('contact_number', 30)->change();
             $table->string('contact_person', 255)->change();
             $table->string('password', 255)->change();
-            $table->string('address', 255)->change();
             $table->string('location', 255)->change();
             $table->string('email', 255)->change();
         });
