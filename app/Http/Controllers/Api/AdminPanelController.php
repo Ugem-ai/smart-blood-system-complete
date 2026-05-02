@@ -65,7 +65,7 @@ class AdminPanelController extends Controller
                 ->selectRaw('AVG((julianday(donor_request_responses.responded_at) - julianday(blood_requests.created_at)) * 24 * 60) as avg_minutes')
                 ->value('avg_minutes')
             : $responseTimeBaseQuery
-                ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, blood_requests.created_at, donor_request_responses.responded_at)) as avg_minutes')
+                ->selectRaw('AVG(EXTRACT(EPOCH FROM (donor_request_responses.responded_at - blood_requests.created_at)) / 60) as avg_minutes')
                 ->value('avg_minutes');
 
         $avgResponseMinutes = round(
@@ -3090,7 +3090,7 @@ class AdminPanelController extends Controller
 
         $raw = DB::connection()->getDriverName() === 'sqlite'
             ? $base->selectRaw('AVG((julianday(donor_request_responses.responded_at) - julianday(blood_requests.created_at)) * 24 * 60) as avg_minutes')->value('avg_minutes')
-            : $base->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, blood_requests.created_at, donor_request_responses.responded_at)) as avg_minutes')->value('avg_minutes');
+            : $base->selectRaw('AVG(EXTRACT(EPOCH FROM (donor_request_responses.responded_at - blood_requests.created_at)) / 60) as avg_minutes')->value('avg_minutes');
 
         return round((float) ($raw ?? 0), 2);
     }
