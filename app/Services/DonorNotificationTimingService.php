@@ -75,7 +75,7 @@ class DonorNotificationTimingService
             ->selectRaw($this->hourSelectExpression().' as hour')
             ->selectRaw('COUNT(*) as total_responses')
             ->selectRaw("SUM(CASE WHEN response = 'accepted' THEN 1 ELSE 0 END) as accepted_responses")
-            ->groupBy('hour')
+            ->groupByRaw($this->hourSelectExpression())
             ->orderByDesc(DB::raw("SUM(CASE WHEN response = 'accepted' THEN 1 ELSE 0 END) * 1.0 / COUNT(*)"))
             ->orderByDesc('total_responses')
             ->limit(max(1, $topHours))
