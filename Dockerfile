@@ -52,12 +52,16 @@ RUN composer install \
     --optimize-autoloader \
     --no-scripts
 
-# Install Node dependencies and build frontend assets
+# Install Node dependencies
 COPY package.json package-lock.json* ./
 RUN npm ci --production=false
 
-# Copy project and build Vite assets
+# Copy project
 COPY . .
+
+# Set Vite build URL and build frontend assets
+ARG VITE_APP_URL=https://smartblood-6ium.onrender.com
+ENV VITE_APP_URL=$VITE_APP_URL
 RUN npm run build
 
 # Create required directories
