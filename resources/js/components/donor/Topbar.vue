@@ -24,23 +24,8 @@
         <div class="text-xs text-gray-500">Blood type {{ bloodType }}</div>
       </div>
 
-      <div class="hidden gap-3 sm:grid sm:grid-cols-2 xl:w-[34rem] xl:grid-cols-3">
-        <div class="rounded-[1.5rem] border border-red-100 bg-[linear-gradient(135deg,_rgba(254,242,242,1),_rgba(255,255,255,1))] px-4 py-3">
-          <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-red-500">Response posture</div>
-          <div class="mt-1 text-sm font-semibold text-gray-900">Mission ready</div>
-          <div class="text-xs text-gray-500">Emergency requests surface instantly for your blood type.</div>
-        </div>
-        <div class="rounded-[1.5rem] border border-gray-200 bg-white px-4 py-3">
-          <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">Verified donor</div>
-          <div class="mt-1 text-sm font-semibold text-gray-900">{{ donorName }}</div>
-          <div class="text-xs text-gray-500">Blood type {{ bloodType }}</div>
-        </div>
-        <div class="rounded-[1.5rem] border border-gray-200 bg-white px-4 py-3">
-          <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">Today</div>
-          <div class="mt-1 text-sm font-semibold text-gray-900">{{ todayLabel }}</div>
-          <div class="text-xs text-gray-500">Fast-action emergency dashboard</div>
-        </div>
-      </div>
+      <!-- Removed emergency quick cards from donor topbar -->
+      <!-- <div class="hidden gap-3 sm:grid sm:grid-cols-2 xl:w-[34rem] xl:grid-cols-3"> ... </div> -->
     </div>
   </header>
 </template>

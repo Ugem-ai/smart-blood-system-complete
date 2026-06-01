@@ -25,12 +25,51 @@
       </div>
     </div>
 
-    <!-- ── Emergency Banner ──────────────────────────────────────────────── -->
+    <!-- ── Critical Priority Alert & Status ──────────────────────────────── -->
     <div v-if="form.is_emergency || form.urgency_level === 'critical'" class="rounded-lg border border-red-300 bg-red-50 p-4">
-      <div class="flex items-center gap-2 text-red-800 font-bold text-sm">
+      <div class="flex items-center gap-2 text-red-800 font-bold text-sm mb-3">
         <span class="text-xl">🚨</span>
-        EMERGENCY REQUEST — This request will be escalated immediately and trigger mass donor notification.
+        CRITICAL REQUEST — Maximum priority escalation active
       </div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-xs text-red-700">
+        <div class="flex items-start gap-2">
+          <span>📈</span>
+          <div>
+            <strong>Prioritization Boost:</strong> +20% base priority, +35% time sensitivity
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <span>📍</span>
+          <div>
+            <strong>Search Radius:</strong> Automatically expanded as needed
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <span>⏱️</span>
+          <div>
+            <strong>Escalation:</strong> 3-stage auto-escalation if no response in 5 min
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <span>📢</span>
+          <div>
+            <strong>Notification:</strong> Mass SMS + push + email to all compatible donors
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── System Status Banner ───────────────────────────────────────────── -->
+    <div v-if="systemStatus.emergencyModeActive" class="rounded-lg border border-orange-300 bg-orange-50 p-4">
+      <div class="flex items-center gap-2 text-orange-800 font-bold text-sm">
+        <span class="text-lg">⚠️</span>
+        System-wide Emergency Broadcast Mode Active
+      </div>
+      <p class="mt-2 text-xs text-orange-700">
+        All requests are being processed with expanded donor pools and accelerated notification timelines.
+        Trigger: <span class="font-semibold">{{ systemStatus.emergencyTrigger }}</span>
+        (expires at <span class="font-semibold">{{ systemStatus.expiresAt }}</span>)
+      </p>
     </div>
 
     <!-- ── Section 1: Patient / Case Context ─────────────────────────────── -->
@@ -83,6 +122,27 @@
             <option value="critical">⚠️ Critical — Active life threat</option>
           </select>
           <p v-if="v$.urgency_level.$error" class="mt-1 text-xs text-red-600">{{ v$.urgency_level.$errors[0].$message }}</p>
+          
+          <!-- Urgency Info -->
+          <div v-if="form.urgency_level" class="mt-3 rounded-lg bg-gray-50 p-3 border border-gray-200">
+            <p class="text-xs font-semibold text-gray-700 mb-2">
+              📊 Prioritization Impact:
+            </p>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="flex items-center gap-1">
+                <span v-if="form.urgency_level === 'low'" class="text-gray-600">Priority: -18%</span>
+                <span v-else-if="form.urgency_level === 'medium'" class="text-yellow-600">Priority: Baseline</span>
+                <span v-else-if="form.urgency_level === 'high'" class="text-orange-600">Priority: +12%</span>
+                <span v-else-if="form.urgency_level === 'critical'" class="font-bold text-red-600">Priority: +20%</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span v-if="form.urgency_level === 'low'" class="text-gray-600">Time: -8%</span>
+                <span v-else-if="form.urgency_level === 'medium'" class="text-yellow-600">Time: Baseline</span>
+                <span v-else-if="form.urgency_level === 'high'" class="text-orange-600">Time: +18%</span>
+                <span v-else-if="form.urgency_level === 'critical'" class="font-bold text-red-600">Time: +35%</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Reason -->
@@ -300,11 +360,64 @@
         <li>✓ Real-time updates arrive as donors respond and accept</li>
       </ul>
     </div>
+
+    <!-- ── Multi-Critical Prioritization Guide ───────────────────────────────── -->
+    <div class="rounded-lg border border-purple-200 bg-purple-50 p-5">
+      <h3 class="font-semibold text-purple-900">🎯 Handling Multiple Critical Cases Simultaneously</h3>
+      <p class="mt-2 text-sm text-purple-800 mb-3">
+        When multiple life-threatening requests occur at the same time (e.g., mass casualty incident), the system manages them using intelligent parallel processing:
+      </p>
+
+      <!-- Escalation Stages -->
+      <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="rounded-lg border border-purple-300 bg-white p-3">
+          <div class="text-xs font-bold text-purple-900 mb-1">🔵 STAGE 1: Immediate (0 min)</div>
+          <p class="text-xs text-purple-700">Top 5 closest donors notified simultaneously via SMS + push</p>
+        </div>
+        <div class="rounded-lg border border-purple-300 bg-white p-3">
+          <div class="text-xs font-bold text-purple-900 mb-1">🟠 STAGE 2: Expand (5 min)</div>
+          <p class="text-xs text-purple-700">Widen search radius if needed; alert next 10 donors in wider zone</p>
+        </div>
+        <div class="rounded-lg border border-purple-300 bg-white p-3">
+          <div class="text-xs font-bold text-purple-900 mb-1">🔴 STAGE 3: Broadcast (10 min)</div>
+          <p class="text-xs text-purple-700">Regional/national mass broadcast to all compatible donors if still no response</p>
+        </div>
+      </div>
+
+      <!-- Key Features -->
+      <div class="mt-4 space-y-2 text-xs text-purple-800">
+        <div class="flex items-start gap-2">
+          <span class="font-bold">🔀 Parallel Processing:</span>
+          <span>Each critical request (O+, B-, A+, etc.) is ranked independently & simultaneously. No waiting between requests.</span>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="font-bold">⚖️ Fair Rotation:</span>
+          <span>Even during critical situations, donors matched in last 72h receive cooldown penalty to prevent burnout and maintain pool sustainability.</span>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="font-bold">🚀 Emergency Boost:</span>
+          <span>During system-wide disasters, all critical requests get +15% additional priority boost and expanded search radius.</span>
+        </div>
+      </div>
+
+      <!-- Example -->
+      <div class="mt-4 rounded-lg bg-white border border-purple-300 p-3">
+        <p class="text-xs font-semibold text-purple-900 mb-2">📋 Example: 6-Victim Multi-Casualty Incident</p>
+        <div class="grid grid-cols-2 gap-2 text-xs text-purple-700">
+          <div>5:15 PM: 6 trauma patients arrive</div>
+          <div>5:16 PM: Create 3 critical requests (O+, B-, A+)</div>
+          <div>5:17 PM: All 3 ranked in parallel (~3 sec)</div>
+          <div>5:17 PM: 30 donors notified simultaneously</div>
+          <div>5:21 PM: O+ confirmed (3 units)</div>
+          <div>5:23 PM: All units secured (7 minutes)</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useVuelidate } from '@vuelidate/core';
 import { required, integer, minValue, maxValue, helpers } from '@vuelidate/validators';
 import api from '../../lib/api';
@@ -344,6 +457,11 @@ const loading     = ref(false);
 const error       = ref('');
 const feedback    = ref('');
 const showCoords  = ref(false);
+const systemStatus = ref({
+  emergencyModeActive: false,
+  emergencyTrigger: null,
+  expiresAt: null,
+});
 
 // ── Vuelidate rules ───────────────────────────────────────────────────────────
 const rules = {
@@ -450,4 +568,22 @@ const resetForm = () => {
   v$.value.$reset();
   showCoords.value = false;
 };
+
+// ── Fetch system status on mount ────────────────────────────────────────────────
+onMounted(async () => {
+  try {
+    const response = await api.get('/admin/system/emergency-broadcast-status');
+    if (response.data?.data) {
+      const data = response.data.data;
+      systemStatus.value = {
+        emergencyModeActive: data.enabled ?? false,
+        emergencyTrigger: data.trigger ?? null,
+        expiresAt: data.expires_at ?? null,
+      };
+    }
+  } catch (err) {
+    // Silently fail if endpoint doesn't exist or user not authorized
+    console.debug('Could not fetch emergency broadcast status:', err.message);
+  }
+});
 </script>

@@ -73,6 +73,47 @@ class HospitalModuleTest extends TestCase
         ]);
     }
 
+    public function test_hospital_can_submit_emergency_blood_request_via_web_form(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'hospital',
+            'email' => 'hospital-emergency@example.com',
+        ]);
+
+        $hospital = Hospital::create([
+            'user_id' => $user->id,
+            'hospital_name' => 'Emergency Care',
+            'location' => 'Enugu',
+            'contact_person' => 'Dr. Emergency',
+            'contact_number' => '08090000000',
+            'email' => $user->email,
+            'password' => 'password',
+            'status' => 'approved',
+        ]);
+
+        $response = $this->actingAs($user)->post(route('hospital.requests.submit'), [
+            'blood_type' => 'A-',
+            'city' => 'Enugu',
+            'requested_units' => 2,
+            'urgency_level' => 'high',
+            'is_emergency' => true,
+            'required_on' => '2026-03-22',
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertDatabaseHas('blood_requests', [
+            'hospital_id' => $hospital->id,
+            'blood_type' => 'A-',
+            'city' => 'Enugu',
+            'requested_units' => 2,
+            'quantity' => 2,
+            'urgency_level' => 'high',
+            'is_emergency' => true,
+            'status' => 'pending',
+        ]);
+    }
+
     public function test_hospital_cannot_login_until_admin_approval_then_can_login_after_approval(): void
     {
         $user = User::factory()->create([

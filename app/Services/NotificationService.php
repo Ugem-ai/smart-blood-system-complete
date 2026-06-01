@@ -11,6 +11,7 @@ use App\Models\NotificationDelivery;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -126,9 +127,9 @@ class NotificationService
     public function notificationHealth(): array
     {
         $pushConfigured = trim((string) config('services.fcm.server_key', '')) !== '';
-        $smsConfigured = trim((string) config('services.twilio.sid', '')) !== ''
-            && trim((string) config('services.twilio.token', '')) !== ''
-            && trim((string) config('services.twilio.from', '')) !== '';
+        $smsConfigured = $this->isTwilioConfigured() || $this->isUnismsConfigured();
+        $smsProvider = $this->smsProvider();
+        $emailConfigured = $this->isEmailConfigured();
 
         $warnings = [];
 
@@ -140,16 +141,22 @@ class NotificationService
             $warnings[] = 'SMS notifications are not configured.';
         }
 
-        if (! $pushConfigured && ! $smsConfigured) {
+        if (! $emailConfigured) {
+            $warnings[] = 'Email notifications are not configured.';
+        }
+
+        if (! $pushConfigured && ! $smsConfigured && ! $emailConfigured) {
             $warnings[] = 'No notification transport is configured; donor alerts cannot be delivered.';
         }
 
         return [
-            'ready' => $pushConfigured || $smsConfigured,
+            'ready' => $pushConfigured || $smsConfigured || $emailConfigured,
             'push_configured' => $pushConfigured,
             'sms_configured' => $smsConfigured,
+            'email_configured' => $emailConfigured,
+            'sms_provider' => $smsProvider,
             'warnings' => $warnings,
-            'summary' => $pushConfigured || $smsConfigured
+            'summary' => $pushConfigured || $smsConfigured || $emailConfigured
                 ? 'Notification transport available.'
                 : 'Notification transport is missing.',
         ];
@@ -380,7 +387,6 @@ class NotificationService
 
     public function sendSms(?int $userId, string $type, ?string $to, string $message, array $meta = []): bool
     {
-        $metrics = app(MonitoringMetricsService::class);
         $retryAttempts = max(1, (int) config('services.notifications.sms_retry_attempts', 3));
         $retryDelayMs = max(1, (int) config('services.notifications.sms_retry_delay_ms', 800));
 
@@ -394,37 +400,220 @@ class NotificationService
                 durationMs: 0
             );
 
-            $metrics->recordNotificationResult('sms', false);
+            app(MonitoringMetricsService::class)->recordNotificationResult('sms', false);
 
             return false;
         }
 
-        $sid = (string) config('services.twilio.sid');
-        $token = (string) config('services.twilio.token');
-        $from = (string) config('services.twilio.from');
+        $provider = $this->smsProvider();
 
-        if ($sid === '' || $token === '' || $from === '') {
-            Log::info('Twilio config missing. SMS skipped.', [
+        if ($provider === 'twilio') {
+            return $this->sendSmsViaTwilio($userId, $type, $to, $message, $meta, $retryAttempts, $retryDelayMs);
+        }
+
+        if ($provider === 'unisms') {
+            return $this->sendSmsViaUnisms($userId, $type, $to, $message, $meta, $retryAttempts, $retryDelayMs);
+        }
+
+        Log::info('SMS provider is not configured. SMS skipped.', [
+            'user_id' => $userId,
+            'type' => $type,
+            'to' => $to,
+            'message' => $message,
+        ]);
+
+        $this->recordDelivery(
+            userId: $userId,
+            type: $type,
+            channel: 'sms',
+            status: 'failed',
+            response: array_merge($meta, ['reason' => 'sms_provider_not_configured']),
+            durationMs: 0
+        );
+
+        app(MonitoringMetricsService::class)->recordNotificationResult('sms', false);
+
+        return false;
+    }
+
+    public function sendEmail(?int $userId, string $type, ?string $to, string $subject, string $body, array $meta = []): bool
+    {
+        if (! $to) {
+            $this->recordDelivery(
+                userId: $userId,
+                type: $type,
+                channel: 'email',
+                status: 'failed',
+                response: array_merge($meta, ['reason' => 'missing_recipient']),
+                durationMs: 0
+            );
+
+            app(MonitoringMetricsService::class)->recordNotificationResult('email', false);
+
+            return false;
+        }
+
+        if (! $this->isEmailConfigured()) {
+            Log::info('Email transport is not configured. Email skipped.', [
                 'user_id' => $userId,
                 'type' => $type,
                 'to' => $to,
-                'message' => $message,
+                'subject' => $subject,
             ]);
 
             $this->recordDelivery(
                 userId: $userId,
                 type: $type,
-                channel: 'sms',
+                channel: 'email',
                 status: 'failed',
-                response: array_merge($meta, ['reason' => 'twilio_not_configured']),
+                response: array_merge($meta, ['reason' => 'email_not_configured']),
                 durationMs: 0
             );
 
-            $metrics->recordNotificationResult('sms', false);
+            app(MonitoringMetricsService::class)->recordNotificationResult('email', false);
 
             return false;
         }
 
+        $start = microtime(true);
+
+        try {
+            Mail::raw($body, function ($message) use ($to, $subject) {
+                $message->to($to)->subject($subject);
+
+                $fromAddress = trim((string) config('mail.from.address', ''));
+                $fromName = trim((string) config('mail.from.name', ''));
+
+                if ($fromAddress !== '') {
+                    $message->from($fromAddress, $fromName !== '' ? $fromName : null);
+                }
+            });
+
+            $durationMs = (microtime(true) - $start) * 1000;
+
+            $this->recordDelivery(
+                userId: $userId,
+                type: $type,
+                channel: 'email',
+                status: 'sent',
+                response: array_merge($meta, [
+                    'subject' => $subject,
+                    'body' => $body,
+                    'recipient' => $to,
+                ]),
+                durationMs: $durationMs
+            );
+
+            app(MonitoringMetricsService::class)->recordNotificationResult('email', true);
+
+            return true;
+        } catch (Throwable $exception) {
+            $durationMs = (microtime(true) - $start) * 1000;
+
+            $this->recordDelivery(
+                userId: $userId,
+                type: $type,
+                channel: 'email',
+                status: 'failed',
+                response: array_merge($meta, [
+                    'subject' => $subject,
+                    'body' => $body,
+                    'recipient' => $to,
+                    'exception' => $exception->getMessage(),
+                ]),
+                durationMs: $durationMs
+            );
+
+            app(MonitoringMetricsService::class)->recordNotificationResult('email', false);
+
+            Log::error('notification.email.exception', [
+                'user_id' => $userId,
+                'type' => $type,
+                'recipient' => $to,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    private function shouldSkipPushDueToStaleDeviceTokens(User $user): bool
+    {
+        $thresholdMinutes = max(0, (int) config('services.notifications.push_stale_threshold_minutes', 30));
+
+        if ($thresholdMinutes === 0) {
+            return false;
+        }
+
+        $freshThreshold = now()->subMinutes($thresholdMinutes);
+
+        $hasFreshDeviceToken = DeviceToken::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('last_used_at')
+            ->where('last_used_at', '>=', $freshThreshold)
+            ->exists();
+
+        return ! $hasFreshDeviceToken && DeviceToken::query()->where('user_id', $user->id)->exists();
+    }
+
+    private function smsProvider(): string
+    {
+        $requested = strtolower(trim((string) config('services.notifications.sms_provider', 'auto')));
+
+        if ($requested === 'twilio' && $this->isTwilioConfigured()) {
+            return 'twilio';
+        }
+
+        if ($requested === 'unisms' && $this->isUnismsConfigured()) {
+            return 'unisms';
+        }
+
+        if ($requested === 'auto') {
+            if ($this->isUnismsConfigured()) {
+                return 'unisms';
+            }
+
+            if ($this->isTwilioConfigured()) {
+                return 'twilio';
+            }
+        }
+
+        if ($this->isUnismsConfigured()) {
+            return 'unisms';
+        }
+
+        if ($this->isTwilioConfigured()) {
+            return 'twilio';
+        }
+
+        return 'none';
+    }
+
+    private function isTwilioConfigured(): bool
+    {
+        return trim((string) config('services.twilio.sid', '')) !== ''
+            && trim((string) config('services.twilio.token', '')) !== ''
+            && trim((string) config('services.twilio.from', '')) !== '';
+    }
+
+    private function isUnismsConfigured(): bool
+    {
+        return trim((string) config('services.unisms.api_key', '')) !== ''
+            && trim((string) config('services.unisms.sender_id', '')) !== '';
+    }
+
+    private function isEmailConfigured(): bool
+    {
+        return trim((string) config('mail.default', '')) !== ''
+            && trim((string) config('mail.from.address', '')) !== '';
+    }
+
+    private function sendSmsViaTwilio(?int $userId, string $type, string $to, string $message, array $meta, int $retryAttempts, int $retryDelayMs): bool
+    {
+        $metrics = app(MonitoringMetricsService::class);
+        $sid = (string) config('services.twilio.sid');
+        $token = (string) config('services.twilio.token');
+        $from = (string) config('services.twilio.from');
         $success = false;
 
         for ($attempt = 1; $attempt <= $retryAttempts; $attempt++) {
@@ -451,6 +640,7 @@ class NotificationService
                         'attempt' => $attempt,
                         'http_status' => $response->status(),
                         'response' => $response->json(),
+                        'provider' => 'twilio',
                     ]),
                     durationMs: $durationMs
                 );
@@ -469,6 +659,7 @@ class NotificationService
                     status: 'failed',
                     response: array_merge($meta, [
                         'attempt' => $attempt,
+                        'provider' => 'twilio',
                         'exception' => $exception->getMessage(),
                     ]),
                     durationMs: (microtime(true) - $start) * 1000
@@ -479,6 +670,86 @@ class NotificationService
                 Log::error('notification.sms.exception', [
                     'user_id' => $userId,
                     'type' => $type,
+                    'provider' => 'twilio',
+                    'attempt' => $attempt,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+
+            if ($attempt < $retryAttempts) {
+                usleep($retryDelayMs * 1000);
+            }
+        }
+
+        return $success;
+    }
+
+    private function sendSmsViaUnisms(?int $userId, string $type, string $to, string $message, array $meta, int $retryAttempts, int $retryDelayMs): bool
+    {
+        $metrics = app(MonitoringMetricsService::class);
+        $apiKey = (string) config('services.unisms.api_key');
+        $senderId = (string) config('services.unisms.sender_id');
+        $endpoint = (string) config('services.unisms.endpoint');
+        $success = false;
+
+        for ($attempt = 1; $attempt <= $retryAttempts; $attempt++) {
+            $start = microtime(true);
+
+            try {
+                $response = Http::acceptJson()
+                    ->withToken($apiKey)
+                    ->post($endpoint, [
+                        'from' => $senderId,
+                        'to' => $to,
+                        'message' => $message,
+                        'type' => $type,
+                        'meta' => $meta,
+                        'api_key' => $apiKey,
+                    ]);
+
+                $durationMs = (microtime(true) - $start) * 1000;
+                $attemptSuccess = $response->successful();
+
+                $this->recordDelivery(
+                    userId: $userId,
+                    type: $type,
+                    channel: 'sms',
+                    status: $attemptSuccess ? 'sent' : 'failed',
+                    response: array_merge($meta, [
+                        'attempt' => $attempt,
+                        'http_status' => $response->status(),
+                        'response' => $response->json(),
+                        'provider' => 'unisms',
+                    ]),
+                    durationMs: $durationMs
+                );
+
+                $metrics->recordNotificationResult('sms', $attemptSuccess);
+
+                if ($attemptSuccess) {
+                    $success = true;
+                    break;
+                }
+            } catch (Throwable $exception) {
+                $this->recordDelivery(
+                    userId: $userId,
+                    type: $type,
+                    channel: 'sms',
+                    status: 'failed',
+                    response: array_merge($meta, [
+                        'attempt' => $attempt,
+                        'provider' => 'unisms',
+                        'exception' => $exception->getMessage(),
+                    ]),
+                    durationMs: (microtime(true) - $start) * 1000
+                );
+
+                $metrics->recordNotificationResult('sms', false);
+
+                Log::error('notification.sms.exception', [
+                    'user_id' => $userId,
+                    'type' => $type,
+                    'provider' => 'unisms',
                     'attempt' => $attempt,
                     'error' => $exception->getMessage(),
                 ]);
@@ -501,7 +772,16 @@ class NotificationService
         array $data
     ): void {
         $userId = $user?->id;
-        $pushSucceeded = $user ? $this->sendPushNotification($user, $type, $title, $message, $data) : false;
+        $pushSucceeded = false;
+
+        if ($user && ! $this->shouldSkipPushDueToStaleDeviceTokens($user)) {
+            $pushSucceeded = $this->sendPushNotification($user, $type, $title, $message, $data);
+        } elseif ($user) {
+            Log::info('notification.push.bypassed_stale_tokens', [
+                'user_id' => $user->id,
+                'threshold_minutes' => (int) config('services.notifications.push_stale_threshold_minutes', 30),
+            ]);
+        }
 
         if ($pushSucceeded) {
             return;
@@ -523,16 +803,33 @@ class NotificationService
             return;
         }
 
+        $emailSucceeded = $this->sendEmail(
+            userId: $userId,
+            type: $type,
+            to: $user?->email,
+            subject: $title,
+            body: trim($title.' - '.str_replace("\n", ' | ', $message)),
+            meta: [
+                'title' => $title,
+                'message' => $message,
+                'payload' => $data,
+            ]
+        );
+
+        if ($emailSucceeded) {
+            return;
+        }
+
         ActivityLog::record(null, 'notification.delivery.escalated', [
             'user_id' => $userId,
             'type' => $type,
-            'reason' => 'push_and_sms_failed',
+            'reason' => 'push_and_sms_and_email_failed',
         ]);
 
         Log::critical('notification.delivery.escalated', [
             'user_id' => $userId,
             'type' => $type,
-            'reason' => 'push_and_sms_failed',
+            'reason' => 'push_and_sms_and_email_failed',
         ]);
     }
 

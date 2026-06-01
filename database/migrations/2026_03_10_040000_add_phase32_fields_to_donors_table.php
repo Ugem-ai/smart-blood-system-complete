@@ -13,10 +13,21 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('donors', function (Blueprint $table) {
-            $table->string('phone', 30)->nullable()->after('contact_number');
-            $table->decimal('latitude', 10, 7)->nullable()->after('phone');
-            $table->decimal('longitude', 10, 7)->nullable()->after('latitude');
-            $table->decimal('reliability_score', 5, 2)->default(0)->after('availability');
+            if (! Schema::hasColumn('donors', 'phone')) {
+                $table->string('phone', 30)->nullable();
+            }
+
+            if (! Schema::hasColumn('donors', 'latitude')) {
+                $table->decimal('latitude', 10, 7)->nullable()->after('phone');
+            }
+
+            if (! Schema::hasColumn('donors', 'longitude')) {
+                $table->decimal('longitude', 10, 7)->nullable()->after('latitude');
+            }
+
+            if (! Schema::hasColumn('donors', 'reliability_score')) {
+                $table->decimal('reliability_score', 5, 2)->default(0)->after('availability');
+            }
         });
 
         // Backfill phone from existing contact_number for current records.

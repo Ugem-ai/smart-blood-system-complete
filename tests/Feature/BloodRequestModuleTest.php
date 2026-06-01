@@ -156,5 +156,56 @@ class BloodRequestModuleTest extends TestCase
             'status' => 'matching',
         ]);
     }
+
+    public function test_ineligible_donor_cannot_accept_request_due_to_recovery_interval(): void
+    {
+        $hospitalUser = User::factory()->create(['role' => 'hospital']);
+        $hospital = Hospital::create([
+            'user_id' => $hospitalUser->id,
+            'hospital_name' => 'Recovery Clinic',
+            'location' => 'Enugu',
+            'contact_person' => 'Dr Recover',
+            'contact_number' => '08050000000',
+            'email' => $hospitalUser->email,
+            'password' => 'password',
+            'status' => 'approved',
+        ]);
+
+        $bloodRequest = BloodRequest::create([
+            'hospital_id' => $hospital->id,
+            'hospital_name' => $hospital->hospital_name,
+            'blood_type' => 'A+',
+            'quantity' => 1,
+            'urgency_level' => 'high',
+            'city' => 'Enugu',
+            'requested_units' => 1,
+            'status' => 'pending',
+        ]);
+
+        $donorUser = User::factory()->create(['role' => 'donor']);
+        $donor = Donor::create([
+            'user_id' => $donorUser->id,
+            'name' => $donorUser->name,
+            'blood_type' => 'A+',
+            'city' => 'Enugu',
+            'contact_number' => '08060000000',
+            'email' => $donorUser->email,
+            'password' => 'password',
+            'availability' => true,
+            'privacy_consent_at' => now(),
+            'last_donation_date' => now()->subDays(10)->toDateString(),
+        ]);
+
+        $this->actingAs($donorUser)
+            ->postJson('/api/donor/accept', ['blood_request_id' => $bloodRequest->id])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Donor is not eligible to accept a new request at this time due to donation recovery interval.');
+
+        $this->assertDatabaseMissing('donor_request_responses', [
+            'donor_id' => $donor->id,
+            'blood_request_id' => $bloodRequest->id,
+        ]);
+    }
 }
 

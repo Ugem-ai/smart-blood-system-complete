@@ -1,5 +1,36 @@
 <template>
   <div class="mx-auto flex max-w-[96rem] flex-col gap-6">
+
+    <!-- ↓ Fatigue Warning Banner — shows when donor is not eligible -->
+    <div
+      v-if="fatigue.fatigue_level && fatigue.fatigue_level !== 'none'"
+      class="rounded-[1.75rem] border px-5 py-4 flex items-start gap-4"
+      :class="[
+        fatigueTheme[fatigue.fatigue_level]?.bg,
+        fatigueTheme[fatigue.fatigue_level]?.border,
+      ]"
+    >
+      <div class="text-2xl mt-0.5">{{ fatigueTheme[fatigue.fatigue_level]?.icon }}</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold uppercase tracking-[0.18em]" :class="fatigueTheme[fatigue.fatigue_level]?.label">
+          Donor Fatigue Notice
+        </div>
+        <div class="mt-1 text-sm font-semibold" :class="fatigueTheme[fatigue.fatigue_level]?.text">
+          {{ fatigue.message }}
+        </div>
+        <div v-if="fatigue.next_eligible_date" class="mt-1 text-xs" :class="fatigueTheme[fatigue.fatigue_level]?.text">
+          Next eligible date: <span class="font-semibold">{{ formatDate(fatigue.next_eligible_date) }}</span>
+        </div>
+      </div>
+      <div
+        v-if="!fatigue.can_be_notified"
+        class="flex-shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+        :class="[fatigueTheme[fatigue.fatigue_level]?.text, fatigueTheme[fatigue.fatigue_level]?.bg]"
+      >
+        Alerts paused
+      </div>
+    </div>
+
     <section v-if="settings.showMissionSummary" class="overflow-hidden rounded-[2rem] border border-red-100 bg-[radial-gradient(circle_at_top_left,_rgba(254,226,226,0.95),_rgba(255,255,255,0.98)_45%,_rgba(248,250,252,1)_100%)] p-6 shadow-sm">
       <div v-if="loading" class="space-y-4 animate-pulse">
         <div class="h-4 w-28 rounded-full bg-red-100"></div>
@@ -79,13 +110,13 @@
               </div>
 
               <div class="flex flex-col gap-2 sm:flex-row xl:flex-col xl:w-44">
-                  <button type="button" class="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="actionLoadingId === request.id" @click="handleResponse(request, 'accept')">
-                  {{ actionLoadingId === request.id && actionLoadingType === 'accept' ? 'Sending...' : 'Respond Now' }}
+                <button type="button" class="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="actionLoadingId === request.id || !fatigue.eligible" @click="handleResponse(request, 'accept')">
+                  {{ actionLoadingId === request.id && actionLoadingType === 'accept' ? 'Sending...' : fatigue.eligible ? 'Respond Now' : 'Not Eligible' }}
                 </button>
-                  <button type="button" class="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50" :disabled="actionLoadingId === request.id" @click="handleResponse(request, 'decline')">
+                <button type="button" class="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50" :disabled="actionLoadingId === request.id" @click="handleResponse(request, 'decline')">
                   {{ actionLoadingId === request.id && actionLoadingType === 'decline' ? 'Declining...' : 'Decline' }}
                 </button>
-                  <button type="button" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50" @click="toggleDetails(request.id)">
+                <button type="button" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50" @click="toggleDetails(request.id)">
                   {{ expandedRequestId === request.id ? 'Hide Details' : 'View Details' }}
                 </button>
               </div>
@@ -125,6 +156,20 @@
               <div class="text-sm font-semibold text-gray-900">Next eligible donation</div>
               <div class="mt-1 text-sm text-gray-600">{{ eligibility.is_eligible ? 'Now' : formatDate(eligibility.next_eligible_date) }}</div>
             </div>
+            <!-- ↓ Fatigue status card -->
+            <div
+              class="rounded-[1.5rem] border p-4"
+              :class="fatigue.fatigue_level !== 'none'
+                ? [fatigueTheme[fatigue.fatigue_level]?.bg, fatigueTheme[fatigue.fatigue_level]?.border]
+                : 'border-gray-200 bg-gray-50'"
+            >
+              <div class="text-sm font-semibold" :class="fatigue.fatigue_level !== 'none' ? fatigueTheme[fatigue.fatigue_level]?.text : 'text-gray-900'">
+                {{ fatigueTheme[fatigue.fatigue_level]?.icon }} Fatigue Status
+              </div>
+              <div class="mt-1 text-sm" :class="fatigue.fatigue_level !== 'none' ? fatigueTheme[fatigue.fatigue_level]?.text : 'text-gray-600'">
+                {{ fatigue.fatigue_level === 'none' ? 'Fully recovered and ready' : `${fatigue.days_until_eligible} days until eligible` }}
+              </div>
+            </div>
             <div class="rounded-[1.5rem] border border-gray-200 bg-gray-50 p-4">
               <div class="text-sm font-semibold text-gray-900">Pending responses</div>
               <div class="mt-1 text-sm text-gray-600">{{ stats.pending_responses || 0 }} request{{ (stats.pending_responses || 0) === 1 ? '' : 's' }} awaiting action</div>
@@ -156,12 +201,22 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { defaultDonorSettings, fetchDonorDashboard, formatDate, respondToRequest, statusBanner, urgencyTheme } from '../../lib/donorPanel';
+import { defaultDonorSettings, fatigueTheme, fetchDonorDashboard, formatDate, respondToRequest, statusBanner, urgencyTheme } from '../../lib/donorPanel';
 import { showDonorToast } from '../../lib/donorToast';
 
 const loading = ref(true);
 const profile = ref({});
 const eligibility = ref({});
+const fatigue = ref({
+  eligible: true,
+  fatigue_level: 'none',
+  message: '',
+  days_since_last_donation: null,
+  days_until_eligible: null,
+  next_eligible_date: null,
+  can_be_notified: true,
+  block_reason: null,
+});
 const stats = ref({});
 const requests = ref([]);
 const history = ref([]);
@@ -243,6 +298,7 @@ async function loadDashboard() {
     const payload = await fetchDonorDashboard();
     profile.value = payload.profile;
     eligibility.value = payload.eligibility;
+    fatigue.value = payload.fatigue;
     stats.value = payload.stats;
     requests.value = payload.requests;
     history.value = payload.history;

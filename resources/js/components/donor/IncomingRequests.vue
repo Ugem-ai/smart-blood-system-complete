@@ -74,8 +74,8 @@
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row xl:flex-col xl:w-48">
-              <button type="button" class="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="request.response_status === 'accepted' || actionLoadingId === request.id" @click="handleResponse(request, 'accept')">
-                {{ request.response_status === 'accepted' ? 'Accepted' : actionLoadingId === request.id && actionLoadingType === 'accept' ? 'Sending...' : 'Accept / Respond' }}
+              <button type="button" class="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="request.response_status === 'accepted' || actionLoadingId === request.id || !fatigue.eligible" @click="handleResponse(request, 'accept')">
+                {{ request.response_status === 'accepted' ? 'Accepted' : actionLoadingId === request.id && actionLoadingType === 'accept' ? 'Sending...' : fatigue.eligible ? 'Accept / Respond' : 'Not Eligible' }}
               </button>
               <button type="button" class="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50" :disabled="request.response_status === 'declined' || actionLoadingId === request.id" @click="handleResponse(request, 'decline')">
                 {{ request.response_status === 'declined' ? 'Declined' : actionLoadingId === request.id && actionLoadingType === 'decline' ? 'Declining...' : 'Decline' }}
@@ -120,6 +120,16 @@ const requests = ref([]);
 const expandedId = ref(null);
 const actionLoadingId = ref(null);
 const actionLoadingType = ref(null);
+const fatigue = ref({
+  eligible: true,
+  fatigue_level: 'none',
+  message: '',
+  days_since_last_donation: null,
+  days_until_eligible: null,
+  next_eligible_date: null,
+  can_be_notified: true,
+  block_reason: null,
+});
 const settings = ref({ ...defaultDonorSettings });
 const filters = reactive({
   radius: 'all',
@@ -150,6 +160,7 @@ async function loadRequests() {
     const payload = await fetchDonorDashboard();
     requests.value = payload.requests;
     settings.value = payload.settings;
+    fatigue.value = payload.fatigue;
 
     filters.radius = payload.settings.maxRadius;
     filters.compatibility = payload.settings.defaultRequestFilter === 'unresponded' ? 'unresponded' : 'all';

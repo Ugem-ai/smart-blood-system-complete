@@ -247,8 +247,19 @@
 
         <div v-else-if="activeTab === 'ranking'" class="overflow-hidden rounded-[2rem] border border-gray-200 bg-white shadow-sm">
           <div class="border-b border-gray-100 px-6 py-5">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-gray-500">Donor Ranking Table</p>
-            <h3 class="mt-2 text-xl font-black text-gray-950">Core engine view with expandable audit rows</h3>
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.2em] text-gray-500">Donor Ranking Table</p>
+                <h3 class="mt-2 text-xl font-black text-gray-950">Core engine view with expandable audit rows</h3>
+              </div>
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm">
+                  <input v-model="showOnlyMatched" type="checkbox" class="rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                  <span class="font-medium text-gray-700">Show only matched donors</span>
+                </label>
+                <span class="rounded-full bg-gray-950 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white">{{ filteredDonors.length }} donors</span>
+              </div>
+            </div>
           </div>
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -265,7 +276,7 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100 bg-white">
-                <template v-for="donor in dashboard.ranked_donors" :key="donor.donor_id">
+                <template v-for="donor in filteredDonors" :key="donor.donor_id">
                   <tr class="cursor-pointer transition hover:bg-gray-50" :class="expandedDonorId === donor.donor_id ? 'bg-red-50' : ''" @click="toggleExpanded(donor.donor_id)">
                     <td class="px-4 py-4 font-black text-gray-950">#{{ donor.rank }}</td>
                     <td class="px-4 py-4">
@@ -424,6 +435,7 @@ const activeTab = ref('overview');
 const expandedDonorId = ref(null);
 const radiusInput = ref(50);
 const controlLoading = ref(false);
+const showOnlyMatched = ref(false);
 const toast = ref({ message: '', type: 'success' });
 
 const responseRateCanvas = ref(null);
@@ -499,6 +511,18 @@ const flowPhases = computed(() => {
     { label: 'Escalation Phase 2', active: current === 'Escalation Phase 2' },
     { label: 'Escalation Phase 3', active: current === 'Escalation Phase 3' },
   ];
+});
+
+const filteredDonors = computed(() => {
+  const donors = dashboard.value?.ranked_donors || [];
+  if (!showOnlyMatched.value) {
+    return donors;
+  }
+
+  return donors.filter((donor) => {
+    const status = (donor.response_status || '').toLowerCase();
+    return status !== 'queued';
+  });
 });
 
 const loadRequestOptions = async (search = '') => {

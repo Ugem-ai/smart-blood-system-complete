@@ -7,6 +7,7 @@ use App\Models\BloodRequest;
 use App\Models\ActivityLog;
 use App\Models\Donor;
 use App\Models\Hospital;
+use App\Services\DonorCooldownService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -26,6 +27,8 @@ class DonorProfileController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $donor = $this->resolveDonorProfile($request);
+        $cooldownService = app(DonorCooldownService::class);
+
         $totalRequestsReceived = $donor->requestResponses()->count();
         $respondedRequests = $donor->requestResponses()->whereNotNull('response')->count();
         $acceptedRequests = $donor->requestResponses()->where('response', 'accepted')->count();
@@ -117,6 +120,10 @@ class DonorProfileController extends Controller
 
         $pendingResponses = $incomingRequests->where('response', null)->count();
 
+        // ↓ Fatigue status from DonorCooldownService
+        $fatigueStatus = $cooldownService->getFatigueStatus($donor);
+        $blockReason = $cooldownService->getBlockReason($donor);
+
         ActivityLog::record($request->user()->id, 'donor.dashboard.accessed', [
             'donor_id' => $donor->id,
             'incoming_requests' => $incomingRequests->count(),
@@ -143,6 +150,17 @@ class DonorProfileController extends Controller
                     'days_since_last_donation' => $donor->daysSinceLastDonation(),
                     'next_eligible_date' => optional($donor->nextEligibleDonationDate())?->toDateString(),
                     'last_screening_result' => $donor->isEligibleForDonation() ? 'Cleared for donation interval' : 'Rest interval active',
+                ],
+                // ↓ New: fatigue status for donor dashboard warning
+                'fatigue' => [
+                    'eligible' => $fatigueStatus['eligible'],
+                    'fatigue_level' => $fatigueStatus['fatigue_level'],
+                    'message' => $fatigueStatus['message'],
+                    'days_since_last_donation' => $fatigueStatus['days_since_last_donation'],
+                    'days_until_eligible' => $fatigueStatus['days_until_eligible'],
+                    'next_eligible_date' => $fatigueStatus['next_eligible_date'],
+                    'can_be_notified' => $cooldownService->canNotifyDonor($donor),
+                    'block_reason' => $blockReason,
                 ],
                 'stats' => [
                     'incoming_requests' => $incomingRequests->count(),
@@ -240,6 +258,11 @@ class DonorProfileController extends Controller
             'latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
             'last_donation_date' => ['sometimes', 'nullable', 'date'],
+            'willing_for_emergency_travel' => ['sometimes', 'boolean'],
+            'normal_travel_radius' => ['sometimes', 'integer', 'min:1', 'max:500'],
+            'emergency_travel_radius' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000'],
+            'preferred_prc_chapter' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'availability_status' => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
 
         $user = $request->user();
@@ -257,7 +280,6 @@ class DonorProfileController extends Controller
 
         $donor->fill($validated);
 
-        // Keep phone/contact_number mirrored for backwards compatibility.
         if (array_key_exists('phone', $validated) && ! array_key_exists('contact_number', $validated)) {
             $donor->contact_number = $validated['phone'] ?? $donor->contact_number;
         }
@@ -438,6 +460,13 @@ class DonorProfileController extends Controller
             ],
             'response_history' => $responseHistory,
             'settings' => $this->normalizedDonorSettings($donor->donor_preferences),
+            'travel_preferences' => [
+                'willing_for_emergency_travel' => (bool) ($donor->willing_for_emergency_travel ?? false),
+                'normal_travel_radius' => (int) ($donor->normal_travel_radius ?? 5),
+                'emergency_travel_radius' => $donor->emergency_travel_radius !== null ? (int) $donor->emergency_travel_radius : null,
+                'preferred_prc_chapter' => $donor->preferred_prc_chapter ?? null,
+                'availability_status' => $donor->availability_status ?? null,
+            ],
         ];
     }
 }

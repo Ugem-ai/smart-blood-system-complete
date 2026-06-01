@@ -932,6 +932,61 @@ class AdminModuleTest extends TestCase
             ->assertJsonPath('data.past_match_weight_profiles.critical.time', 0.42);
     }
 
+    public function test_admin_can_persist_system_settings_using_legacy_api_keys(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $response = $this->patchJson('/api/admin/settings', [
+            'urgency_threshold' => 86,
+            'notification_rule' => 'balanced',
+            'past_match_weights' => [
+                'priority' => 0.33,
+                'availability' => 0.23,
+                'distance' => 0.17,
+                'time' => 0.27,
+            ],
+            'past_match_weight_profiles' => [
+                'low' => [
+                    'priority' => 0.17,
+                    'availability' => 0.28,
+                    'distance' => 0.32,
+                    'time' => 0.23,
+                ],
+                'medium' => [
+                    'priority' => 0.33,
+                    'availability' => 0.23,
+                    'distance' => 0.17,
+                    'time' => 0.27,
+                ],
+                'high' => [
+                    'priority' => 0.30,
+                    'availability' => 0.18,
+                    'distance' => 0.16,
+                    'time' => 0.36,
+                ],
+                'critical' => [
+                    'priority' => 0.31,
+                    'availability' => 0.15,
+                    'distance' => 0.14,
+                    'time' => 0.40,
+                ],
+            ],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.urgency_threshold', 86);
+        $response->assertJsonPath('data.notification_rule', 'balanced');
+        $response->assertJsonPath('data.past_match_weights.priority', 0.33);
+        $response->assertJsonPath('data.past_match_weights.time', 0.27);
+        $response->assertJsonPath('data.past_match_weight_profiles.critical.time', 0.40);
+
+        $this->getJson('/api/admin/settings')
+            ->assertOk()
+            ->assertJsonPath('data.past_match_weights.priority', 0.33)
+            ->assertJsonPath('data.past_match_weight_profiles.critical.time', 0.40);
+    }
+
     public function test_past_match_monitoring_uses_configured_settings_weights(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

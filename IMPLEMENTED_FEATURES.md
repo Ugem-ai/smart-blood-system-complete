@@ -471,7 +471,7 @@ Validation run:
 Notification channels:
 
 - [x] Push notifications foundation (Firebase Cloud Messaging config placeholders)
-- [x] SMS notification foundation (Twilio config placeholders)
+- [x] SMS notification foundation (UniSMS config placeholders)
 
 Tasks:
 
@@ -493,7 +493,7 @@ Example notification implemented:
 
 Configuration:
 
-- [x] `config/services.php` includes `fcm` and `twilio` credential blocks (`FCM_SERVER_KEY`, `TWILIO_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`).
+- [x] `config/services.php` includes `fcm` and `unisms` credential blocks (`FCM_SERVER_KEY`, `UNISMS_API_KEY`, `UNISMS_SENDER_ID`, `UNISMS_ENDPOINT`).
 
 Validation run:
 

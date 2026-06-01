@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('blood_type', 5);
             $table->string('city');
             $table->string('contact_number', 30);
+            $table->string('phone', 30)->nullable();
             $table->string('email')->unique();
             $table->string('password');
             $table->date('last_donation_date')->nullable();

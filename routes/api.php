@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\DonorResponseController;
 use App\Http\Controllers\Api\HospitalInventoryController;
 use App\Http\Controllers\Api\HospitalProfileController;
 use App\Http\Controllers\Api\HospitalRequestController;
+use App\Http\Controllers\Api\ChapterInventoryController;
+use App\Http\Controllers\Api\InventoryTransferController;
 use App\Http\Controllers\Api\MonitoringController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +26,23 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::patch('/me', [AuthController::class, 'updateMe']);
     Route::post('/device-tokens/register', [DeviceTokenController::class, 'store']);
+    
+    // System status accessible to all authenticated users
+    Route::get('/admin/system/emergency-broadcast-status', function () {
+        $emergencyService = app(\App\Services\EmergencyBroadcastModeService::class);
+        $state = $emergencyService->state();
+        
+        return response()->json([
+            'data' => [
+                'enabled' => $state['enabled'] ?? false,
+                'trigger' => $state['trigger'] ?? null,
+                'activated_at' => $state['activated_at'] ?? null,
+                'expires_at' => $state['expires_at'] ?? null,
+                'active_duration_seconds' => $state['active_duration_seconds'] ?? 0,
+                'is_disaster_response' => $emergencyService->isDisasterResponseActive(),
+            ],
+        ]);
+    });
 });
 
 Route::prefix('v1')->group(function () {
@@ -52,7 +71,21 @@ Route::prefix('v1')->group(function () {
         Route::get('/hospital/ping', function () {
             return response()->json(['message' => 'Hospital access granted']);
         })->middleware('role:hospital');
+
+        Route::get('/prc/chapters', [ChapterInventoryController::class, 'index']);
+        Route::get('/prc/chapters/{chapter}', [ChapterInventoryController::class, 'show']);
+        Route::get('/prc/chapters/{chapter}/nearby', [ChapterInventoryController::class, 'nearby']);
+        Route::get('/prc/chapters/{chapter}/recommend-transfers', [ChapterInventoryController::class, 'recommendTransfers']);
+        Route::get('/prc/inventory/search', [ChapterInventoryController::class, 'search']);
+
+        Route::post('/prc/transfers', [InventoryTransferController::class, 'store']);
+        Route::get('/prc/transfers/{inventoryTransfer}', [InventoryTransferController::class, 'show']);
+        Route::post('/prc/transfers/{inventoryTransfer}/approve', [InventoryTransferController::class, 'approve']);
+        Route::post('/prc/transfers/{inventoryTransfer}/complete', [InventoryTransferController::class, 'complete']);
+        Route::post('/prc/transfers/{inventoryTransfer}/cancel', [InventoryTransferController::class, 'cancel']);
     });
+
+    Route::get('/prc/chapters/stream', [ChapterInventoryController::class, 'stream']);
 });
 
 Route::middleware(['auth:sanctum', 'role:donor', 'audit', 'monitor', 'throttle:60,1'])->group(function () {
@@ -63,6 +96,7 @@ Route::middleware(['auth:sanctum', 'role:donor', 'audit', 'monitor', 'throttle:6
     Route::put('/donor/update', [DonorProfileController::class, 'update']);
     Route::post('/donor/status', [DonorProfileController::class, 'status']);
     Route::post('/donor/accept', [DonorResponseController::class, 'accept']);
+    Route::post('/donor/maybe', [DonorResponseController::class, 'maybe']);
     Route::post('/donor/decline', [DonorResponseController::class, 'decline']);
 });
 
@@ -74,13 +108,6 @@ Route::middleware(['auth:sanctum', 'role:hospital', 'audit', 'monitor', 'throttl
     Route::get('/hospital/settings-snapshot', [HospitalProfileController::class, 'settingsSnapshot']);
     Route::get('/hospital/inventory', [HospitalInventoryController::class, 'index']);
     Route::put('/hospital/inventory', [HospitalInventoryController::class, 'update']);
-
-    // Canonical REST-style hospital request routes
-    Route::post('/hospital/requests', [HospitalRequestController::class, 'store']);
-    Route::get('/hospital/requests', [HospitalRequestController::class, 'index']);
-    Route::get('/hospital/requests/{bloodRequest}', [HospitalRequestController::class, 'show']);
-    Route::match(['put', 'patch'], '/hospital/requests/{bloodRequest}', [HospitalRequestController::class, 'update']);
-    Route::get('/hospital/requests/{bloodRequest}/matched-donors', [HospitalRequestController::class, 'matchedDonors']);
 
     // Backward-compatible aliases
     Route::post('/hospital/request', [HospitalRequestController::class, 'store']);

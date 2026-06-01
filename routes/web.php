@@ -19,6 +19,9 @@ Route::middleware('auth')->group(function () {
         };
     })->name('dashboard');
 
+    // System endpoints (accessible to all authenticated users)
+    Route::get('/api/system/emergency-broadcast-status', [AdminController::class, 'getEmergencyBroadcastStatus'])->name('system.emergency-broadcast-status');
+
     // Admin routes
     Route::middleware('role:admin')->group(function () {
         Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');

@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-dvh overflow-hidden bg-gray-50 lg:h-screen">
+  <div class="flex min-h-screen overflow-hidden bg-gray-50 lg:h-screen">
     <button
       v-if="mobileSidebarOpen"
       type="button"

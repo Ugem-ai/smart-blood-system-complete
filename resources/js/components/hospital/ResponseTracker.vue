@@ -95,13 +95,23 @@
           <!-- Actions -->
           <div class="flex items-end gap-2 sm:col-span-2 lg:col-span-1">
             <button
+              type="button"
               v-if="response.response_status === 'accepted'"
+              :disabled="confirmingId === response.donor_id"
               @click="confirmDonor(response)"
-              class="flex-1 inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-colors"
+              class="flex-1 inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             >
-              ✅ Confirm
+              {{ confirmingId === response.donor_id ? 'Confirming...' : '✅ Confirm' }}
             </button>
             <button
+              type="button"
+              v-else-if="response.response_status === 'confirmed'"
+              class="flex-1 inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+            >
+              ✅ Confirmed
+            </button>
+            <button
+              type="button"
               v-else
               class="flex-1 inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-gray-200 text-gray-600 text-xs font-semibold cursor-not-allowed"
             >
@@ -134,6 +144,7 @@ const activeRequests = ref([]);
 const selectedRequestId = ref('');
 const responses = ref([]);
 const loading = ref(false);
+const confirmingId = ref(null);
 let refreshInterval = null;
 
 const selectedRequestBloodType = computed(() => {
@@ -178,6 +189,8 @@ const getStatusBadge = (status) => {
   switch (status) {
     case 'accepted':
       return 'bg-green-100 text-green-800';
+    case 'confirmed':
+      return 'bg-sky-100 text-sky-800';
     case 'declined':
       return 'bg-red-100 text-red-800';
     default:
@@ -211,20 +224,26 @@ const loadResponses = async () => {
 };
 
 const confirmDonor = async (response) => {
+  confirmingId.value = response.donor_id;
+
   try {
     await api.post('/hospital/confirm-donation', {
       blood_request_id: Number(selectedRequestId.value),
       donor_id: Number(response.donor_id),
     });
 
-    // Update the response status
+    // Update the response status and refresh active request list
     const index = responses.value.findIndex(r => Number(r.donor_id) === Number(response.donor_id));
     if (index !== -1) {
-      responses.value[index].response_status = 'accepted';
+      responses.value[index].response_status = 'confirmed';
     }
+
+    await loadActiveRequests();
   } catch (err) {
     console.error('Failed to confirm donor:', err);
     alert('Failed to confirm donor. Please try again.');
+  } finally {
+    confirmingId.value = null;
   }
 };
 

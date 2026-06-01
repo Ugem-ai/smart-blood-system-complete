@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessBloodRequestMatchingJob;
 use App\Models\BloodRequest;
 use App\Models\Hospital;
 use App\Models\RequestMatch;
@@ -320,6 +321,47 @@ class BloodRequestApiTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.is_emergency', true)
             ->assertJsonPath('operational_mode.is_emergency', true);
+    }
+
+    public function test_update_can_toggle_is_emergency_on_hospital_request(): void
+    {
+        Queue::fake();
+
+        [$user, $hospital] = $this->approvedHospitalUser('updateemer');
+
+        Sanctum::actingAs($user);
+
+        $bloodRequest = BloodRequest::create([
+            'hospital_id'      => $hospital->id,
+            'hospital_name'    => $hospital->hospital_name,
+            'blood_type'       => 'A-',
+            'units_required'   => 2,
+            'quantity'         => 2,
+            'requested_units'  => 2,
+            'urgency_level'    => 'medium',
+            'city'             => 'Manila',
+            'distance_limit_km'=> 50,
+            'status'           => 'pending',
+            'is_emergency'     => false,
+        ]);
+
+        $response = $this->patchJson("/api/hospital/requests/{$bloodRequest->id}", [
+            'is_emergency' => true,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.is_emergency', true);
+
+        $this->assertDatabaseHas('blood_requests', [
+            'id'           => $bloodRequest->id,
+            'is_emergency' => 1,
+        ]);
+
+        Queue::assertPushed(ProcessBloodRequestMatchingJob::class, function (ProcessBloodRequestMatchingJob $job) use ($bloodRequest, $user) {
+            return $job->bloodRequestId === $bloodRequest->id
+                && $job->actorUserId === $user->id;
+        });
     }
 
     public function test_store_persists_component_field(): void

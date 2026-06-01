@@ -261,7 +261,7 @@ class HospitalRequestController extends Controller
             if ($transitionError !== null) {
                 return response()->json([
                     'success' => false,
-                    'data' => null,
+                    'data'    => null,
                     'message' => $transitionError,
                 ], 422);
             }
@@ -287,16 +287,16 @@ class HospitalRequestController extends Controller
             }
 
             ProcessBloodRequestMatchingJob::dispatch(
-                bloodRequestId: $bloodRequest->id,
-                actorUserId: $request->user()->id,
+                bloodRequestId:  $bloodRequest->id,
+                actorUserId:     $request->user()->id,
                 distanceLimitKm: (float) ($bloodRequest->distance_limit_km ?? 0),
             )->onQueue('matching');
         }
 
         ActivityLog::record($request->user()?->id, 'hospital.request.updated', [
-            'hospital_id'      => $hospital->id,
-            'blood_request_id' => $bloodRequest->id,
-            'changes'          => $updates,
+            'hospital_id'             => $hospital->id,
+            'blood_request_id'        => $bloodRequest->id,
+            'changes'                 => $updates,
             'matching_job_dispatched' => $shouldRerunMatching,
         ]);
 
@@ -323,7 +323,7 @@ class HospitalRequestController extends Controller
         if (! $hospital) {
             return response()->json([
                 'success' => false,
-                'data' => null,
+                'data'    => null,
                 'message' => 'Hospital profile not found.',
             ], 404);
         }
@@ -331,14 +331,16 @@ class HospitalRequestController extends Controller
         if ((int) $bloodRequest->hospital_id !== (int) $hospital->id) {
             return response()->json([
                 'success' => false,
-                'data' => null,
+                'data'    => null,
                 'message' => 'Unauthorized request scope.',
             ], 403);
         }
 
-        $bloodRequest->loadMissing('donorResponses');
+        // Eager-load both relationships up front to avoid N+1 queries
+        $bloodRequest->loadMissing(['donorResponses.donor']);
 
-        $rows = RequestMatch::query()
+        // --- 1. Algorithm-matched donors (from request_matches) ---
+        $matchRows = RequestMatch::query()
             ->where(function ($query) use ($bloodRequest) {
                 $query->where('request_id', $bloodRequest->id)
                     ->orWhere('blood_request_id', $bloodRequest->id);
@@ -347,62 +349,70 @@ class HospitalRequestController extends Controller
             ->orderBy('rank')
             ->get();
 
-        $donors = $rows
+        // Track which donor IDs we've already included so self-responded
+        // donors who also have a request_match row are not duplicated.
+        $donorIdsSeen = [];
+
+        $donors = $matchRows
             ->filter(fn (RequestMatch $match) => $match->donor !== null)
-            ->map(function (RequestMatch $match) use ($bloodRequest, $donorFilterService, $travelIntelligenceService, $allocationService) {
-                $donor = $match->donor;
-                $response = $bloodRequest->donorResponses->firstWhere('donor_id', $donor->id);
+            ->map(function (RequestMatch $match) use (
+                $bloodRequest,
+                $donorFilterService,
+                $travelIntelligenceService,
+                $allocationService,
+                &$donorIdsSeen
+            ) {
+                $donorIdsSeen[$match->donor_id] = true;
 
-                $distanceKm = null;
-                if ($bloodRequest->latitude !== null && $bloodRequest->longitude !== null && $donor->latitude !== null && $donor->longitude !== null) {
-                    $distanceKm = $donorFilterService->haversineDistanceKm(
-                        (float) $bloodRequest->latitude,
-                        (float) $bloodRequest->longitude,
-                        (float) $donor->latitude,
-                        (float) $donor->longitude,
-                    );
-                }
+                $response = $bloodRequest->donorResponses
+                    ->firstWhere('donor_id', $match->donor_id);
 
-                $travel = $travelIntelligenceService->analyze(
-                    distanceKm:     $distanceKm,
-                    requestCity:    $bloodRequest->city,
-                    donorCity:      $donor->city,
-                    hasCoordinates: $donor->latitude !== null && $donor->longitude !== null,
+                return $this->buildDonorRow(
+                    donor:                     $match->donor,
+                    bloodRequest:              $bloodRequest,
+                    donorFilterService:        $donorFilterService,
+                    travelIntelligenceService: $travelIntelligenceService,
+                    allocationService:         $allocationService,
+                    score:                     $match->score,
+                    rank:                      $match->rank,
+                    responseStatus:            $match->response_status,
+                    respondedAt:               optional($response?->responded_at)?->toISOString(),
                 );
-
-                $coordination = $allocationService->coordinationStateForDonorOnRequest($donor->id, $bloodRequest->id);
-
-                return [
-                    'donor_id'                      => $donor->id,
-                    'name'                          => $donor->name,
-                    'blood_type'                    => $donor->blood_type,
-                    'contact_number'                => $donor->contact_number,
-                    'email'                         => $donor->email,
-                    'city'                          => $donor->city,
-                    'latitude'                      => $donor->latitude,
-                    'longitude'                     => $donor->longitude,
-                    'availability'                  => (bool) $donor->availability,
-                    'reliability_score'             => (float) $donor->reliability_score,
-                    'score'                         => $match->score,
-                    'rank'                          => $match->rank,
-                    'response_status'               => $match->response_status,
-                    'responded_at'                  => optional($response?->responded_at)?->toISOString(),
-                    'distance_km'                   => $distanceKm,
-                    'estimated_travel_minutes'      => $travel['estimated_travel_minutes'],
-                    'traffic_condition'             => $travel['traffic_condition'],
-                    'traffic_multiplier'            => $travel['traffic_multiplier'],
-                    'transport_accessibility_score' => $travel['transport_accessibility_score'],
-                    'fastest_arrival_score'         => $travel['fastest_arrival_score'],
-                    'coordination_status'           => $coordination['coordination_status'],
-                    'allocated_request_id'          => $coordination['allocated_request_id'],
-                ];
             })
+            ->values()
+            ->toArray();
+
+        // --- 2. Self-responded donors NOT in request_matches ---
+        // Donors who responded via broadcast/public listing bypass the
+        // PAST-Match algorithm entirely, so they have a donor_response row
+        // but no request_match row. We append them after the ranked results.
+        $selfResponded = $bloodRequest->donorResponses
+            ->filter(fn ($resp) =>
+                $resp->donor !== null
+                && ! isset($donorIdsSeen[$resp->donor_id])
+            )
             ->values();
 
+        foreach ($selfResponded as $index => $resp) {
+            $donors[] = $this->buildDonorRow(
+                donor:                     $resp->donor,
+                bloodRequest:              $bloodRequest,
+                donorFilterService:        $donorFilterService,
+                travelIntelligenceService: $travelIntelligenceService,
+                allocationService:         $allocationService,
+                score:                     null,
+                rank:                      count($matchRows) + $index + 1,
+                responseStatus:            $resp->response,
+                respondedAt:               optional($resp->responded_at)?->toISOString(),
+            );
+        }
+
         ActivityLog::record($request->user()->id, 'hospital.matched-donors.accessed', [
-            'hospital_id'      => $hospital->id,
-            'blood_request_id' => $bloodRequest->id,
-            'result_count'     => $donors->count(),
+            'hospital_id'       => $hospital->id,
+            'blood_request_id'  => $bloodRequest->id,
+            'result_count'      => count($donors),
+            'algorithm_matched' => count($matchRows),
+            'self_responded'    => $selfResponded->count(),
         ]);
 
         return response()->json([
@@ -419,8 +429,11 @@ class HospitalRequestController extends Controller
     // confirmDonation — POST /api/hospital/confirm-donation
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function confirmDonation(Request $request, NotificationService $notificationService, BloodRequestService $bloodRequestService): JsonResponse
-    {
+    public function confirmDonation(
+        Request $request,
+        NotificationService $notificationService,
+        BloodRequestService $bloodRequestService
+    ): JsonResponse {
         $validated = $request->validate([
             'blood_request_id' => ['required', 'integer', 'exists:blood_requests,id'],
             'donor_id'         => ['required', 'integer', 'exists:donors,id'],
@@ -433,7 +446,7 @@ class HospitalRequestController extends Controller
         if (! $hospital) {
             return response()->json([
                 'success' => false,
-                'data' => null,
+                'data'    => null,
                 'message' => 'Hospital profile not found.',
             ], 404);
         }
@@ -443,7 +456,7 @@ class HospitalRequestController extends Controller
         if (! $bloodRequest) {
             return response()->json([
                 'success' => false,
-                'data' => null,
+                'data'    => null,
                 'message' => 'Blood request not found for this hospital.',
             ], 404);
         }
@@ -458,7 +471,7 @@ class HospitalRequestController extends Controller
         if (! $acceptedResponseExists) {
             return response()->json([
                 'success' => false,
-                'data' => null,
+                'data'    => null,
                 'message' => 'Donor has not accepted this request.',
             ], 422);
         }
@@ -490,6 +503,8 @@ class HospitalRequestController extends Controller
             'donor_assignment_confirmed_at' => now(),
         ]);
 
+        // Keep request_matches in sync for donors who self-responded
+        // (they may not have a row yet — upsert avoids a duplicate error)
         RequestMatch::query()
             ->where('donor_id', $donor->id)
             ->where(function ($query) use ($bloodRequest) {
@@ -523,5 +538,71 @@ class HospitalRequestController extends Controller
             ],
             'message' => 'Donation confirmed successfully.',
         ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // buildDonorRow — shared shape for algorithm-matched + self-responded donors
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function buildDonorRow(
+        Donor $donor,
+        BloodRequest $bloodRequest,
+        DonorFilterService $donorFilterService,
+        TravelIntelligenceService $travelIntelligenceService,
+        DonorAllocationService $allocationService,
+        ?float $score,
+        int $rank,
+        ?string $responseStatus,
+        ?string $respondedAt,
+    ): array {
+        $distanceKm = null;
+        if (
+            $bloodRequest->latitude !== null && $bloodRequest->longitude !== null
+            && $donor->latitude     !== null && $donor->longitude        !== null
+        ) {
+            $distanceKm = $donorFilterService->haversineDistanceKm(
+                (float) $bloodRequest->latitude,
+                (float) $bloodRequest->longitude,
+                (float) $donor->latitude,
+                (float) $donor->longitude,
+            );
+        }
+
+        $travel = $travelIntelligenceService->analyze(
+            distanceKm:     $distanceKm,
+            requestCity:    $bloodRequest->city,
+            donorCity:      $donor->city,
+            hasCoordinates: $donor->latitude !== null && $donor->longitude !== null,
+        );
+
+        $coordination = $allocationService->coordinationStateForDonorOnRequest(
+            $donor->id,
+            $bloodRequest->id,
+        );
+
+        return [
+            'donor_id'                      => $donor->id,
+            'name'                          => $donor->name,
+            'blood_type'                    => $donor->blood_type,
+            'contact_number'                => $donor->contact_number,
+            'email'                         => $donor->email,
+            'city'                          => $donor->city,
+            'latitude'                      => $donor->latitude,
+            'longitude'                     => $donor->longitude,
+            'availability'                  => (bool) $donor->availability,
+            'reliability_score'             => (float) $donor->reliability_score,
+            'score'                         => $score,
+            'rank'                          => $rank,
+            'response_status'               => $responseStatus,
+            'responded_at'                  => $respondedAt,
+            'distance_km'                   => $distanceKm,
+            'estimated_travel_minutes'      => $travel['estimated_travel_minutes'],
+            'traffic_condition'             => $travel['traffic_condition'],
+            'traffic_multiplier'            => $travel['traffic_multiplier'],
+            'transport_accessibility_score' => $travel['transport_accessibility_score'],
+            'fastest_arrival_score'         => $travel['fastest_arrival_score'],
+            'coordination_status'           => $coordination['coordination_status'],
+            'allocated_request_id'          => $coordination['allocated_request_id'],
+        ];
     }
 }

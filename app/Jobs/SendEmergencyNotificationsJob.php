@@ -2,8 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Models\BloodRequest;
 use App\Models\ActivityLog;
+use App\Models\BloodRequest;
+use App\Models\Donor;
 use App\Services\DonorCooldownService;
 use App\Services\DonorFilterService;
 use App\Services\DonorNotificationTimingService;
@@ -35,7 +36,8 @@ class SendEmergencyNotificationsJob implements ShouldQueue, ShouldBeUnique
 
     public function __construct(
         public int $bloodRequestId,
-        public int $escalationLevel = EmergencyEscalationService::LEVEL_CLOSEST
+        public int $escalationLevel = EmergencyEscalationService::LEVEL_CLOSEST,
+        public ?array $matchedDonors = null,
     ) {
         $this->onQueue('notifications');
     }
@@ -117,6 +119,12 @@ class SendEmergencyNotificationsJob implements ShouldQueue, ShouldBeUnique
                 'escalation_level' => $this->escalationLevel,
             ]);
 
+            return;
+        }
+
+        if ($this->matchedDonors) {
+            $this->notifyMatchedDonors($notificationService, $cooldownService, $bloodRequest);
+            $metrics->recordRequestProcessing('notifications', (microtime(true) - $start) * 1000, true);
             return;
         }
 
@@ -266,6 +274,31 @@ class SendEmergencyNotificationsJob implements ShouldQueue, ShouldBeUnique
             'escalation_level' => $this->escalationLevel,
             'attempts' => $this->attempts(),
             'error' => $exception->getMessage(),
+        ]);
+    }
+
+    private function notifyMatchedDonors(
+        NotificationService $notificationService,
+        DonorCooldownService $cooldownService,
+        BloodRequest $bloodRequest
+    ): void {
+        $sentCount = 0;
+        $donors = Donor::query()->whereIn('id', $this->matchedDonors)->get();
+        foreach ($donors as $donor) {
+            if ($cooldownService->canNotifyDonor($donor)) {
+                $notificationService->sendDonorAlert($donor, $bloodRequest, null);
+                $cooldownService->recordAlert($bloodRequest, $donor, $this->escalationLevel);
+                $sentCount++;
+            }
+        }
+
+        Log::info('queue.job.success', [
+            'job' => self::class,
+            'queue' => 'notifications',
+            'attempt' => $this->attempts(),
+            'blood_request_id' => $this->bloodRequestId,
+            'mode' => 'matched_donors',
+            'notifications_sent' => $sentCount,
         ]);
     }
 }

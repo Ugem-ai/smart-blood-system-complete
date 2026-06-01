@@ -149,6 +149,163 @@ class MultiHospitalCoordinationTest extends TestCase
         ]);
     }
 
+    public function test_donor_with_pending_match_on_active_critical_request_is_excluded_from_simultaneous_matching(): void
+    {
+        $donorUser = User::factory()->create(['role' => 'donor']);
+        $donor = Donor::create([
+            'user_id' => $donorUser->id,
+            'name' => 'Conflict Donor',
+            'blood_type' => 'O+',
+            'city' => 'Manila',
+            'contact_number' => '09170000447',
+            'email' => $donorUser->email,
+            'password' => 'Password123!',
+            'availability' => true,
+            'privacy_consent_at' => now(),
+            'reliability_score' => 80,
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+        ]);
+
+        [$hospitalUserA, $hospitalA] = $this->makeHospital('hospital-g@example.com', 'Hospital G');
+        [$hospitalUserB, $hospitalB] = $this->makeHospital('hospital-h@example.com', 'Hospital H');
+
+        $requestA = BloodRequest::create([
+            'hospital_id' => $hospitalA->id,
+            'hospital_name' => $hospitalA->hospital_name,
+            'blood_type' => 'O+',
+            'units_required' => 1,
+            'quantity' => 1,
+            'requested_units' => 1,
+            'urgency_level' => 'critical',
+            'city' => 'Manila',
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'status' => 'pending',
+        ]);
+
+        app(ProcessBloodRequestMatchingJob::class, [
+            'bloodRequestId' => $requestA->id,
+            'actorUserId' => $hospitalUserA->id,
+            'distanceLimitKm' => 50,
+        ])->handle(
+            app(\App\Services\DonorFilterService::class),
+            app(\App\Algorithms\PASTMatch::class),
+            app(\App\Services\MonitoringMetricsService::class)
+        );
+
+        $requestB = BloodRequest::create([
+            'hospital_id' => $hospitalB->id,
+            'hospital_name' => $hospitalB->hospital_name,
+            'blood_type' => 'O+',
+            'units_required' => 1,
+            'quantity' => 1,
+            'requested_units' => 1,
+            'urgency_level' => 'critical',
+            'city' => 'Manila',
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'status' => 'pending',
+        ]);
+
+        app(ProcessBloodRequestMatchingJob::class, [
+            'bloodRequestId' => $requestB->id,
+            'actorUserId' => $hospitalUserB->id,
+            'distanceLimitKm' => 50,
+        ])->handle(
+            app(\App\Services\DonorFilterService::class),
+            app(\App\Algorithms\PASTMatch::class),
+            app(\App\Services\MonitoringMetricsService::class)
+        );
+
+        $this->assertDatabaseMissing('matches', [
+            'blood_request_id' => $requestB->id,
+            'donor_id' => $donor->id,
+        ]);
+    }
+
+    public function test_pending_match_reservation_expires_after_timeout_for_future_matching(): void
+    {
+        config(['services.notifications.pending_reservation_expiration_minutes' => 10]);
+
+        $donorUser = User::factory()->create(['role' => 'donor']);
+        $donor = Donor::create([
+            'user_id' => $donorUser->id,
+            'name' => 'Expired Reservation Donor',
+            'blood_type' => 'O+',
+            'city' => 'Manila',
+            'contact_number' => '09170000448',
+            'email' => $donorUser->email,
+            'password' => 'Password123!',
+            'availability' => true,
+            'privacy_consent_at' => now(),
+            'reliability_score' => 80,
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+        ]);
+
+        [$hospitalUserA, $hospitalA] = $this->makeHospital('hospital-i@example.com', 'Hospital I');
+        [$hospitalUserB, $hospitalB] = $this->makeHospital('hospital-j@example.com', 'Hospital J');
+
+        $requestA = BloodRequest::create([
+            'hospital_id' => $hospitalA->id,
+            'hospital_name' => $hospitalA->hospital_name,
+            'blood_type' => 'O+',
+            'units_required' => 1,
+            'quantity' => 1,
+            'requested_units' => 1,
+            'urgency_level' => 'critical',
+            'city' => 'Manila',
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'status' => 'pending',
+        ]);
+
+        app(ProcessBloodRequestMatchingJob::class, [
+            'bloodRequestId' => $requestA->id,
+            'actorUserId' => $hospitalUserA->id,
+            'distanceLimitKm' => 50,
+        ])->handle(
+            app(\App\Services\DonorFilterService::class),
+            app(\App\Algorithms\PASTMatch::class),
+            app(\App\Services\MonitoringMetricsService::class)
+        );
+
+        RequestMatch::query()
+            ->where('blood_request_id', $requestA->id)
+            ->where('donor_id', $donor->id)
+            ->update(['created_at' => now()->subMinutes(30)]);
+
+        $requestB = BloodRequest::create([
+            'hospital_id' => $hospitalB->id,
+            'hospital_name' => $hospitalB->hospital_name,
+            'blood_type' => 'O+',
+            'units_required' => 1,
+            'quantity' => 1,
+            'requested_units' => 1,
+            'urgency_level' => 'critical',
+            'city' => 'Manila',
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'status' => 'pending',
+        ]);
+
+        app(ProcessBloodRequestMatchingJob::class, [
+            'bloodRequestId' => $requestB->id,
+            'actorUserId' => $hospitalUserB->id,
+            'distanceLimitKm' => 50,
+        ])->handle(
+            app(\App\Services\DonorFilterService::class),
+            app(\App\Algorithms\PASTMatch::class),
+            app(\App\Services\MonitoringMetricsService::class)
+        );
+
+        $this->assertDatabaseHas('matches', [
+            'blood_request_id' => $requestB->id,
+            'donor_id' => $donor->id,
+        ]);
+    }
+
     public function test_cancelled_request_releases_reserved_donor_for_future_matching(): void
     {
         $donorUser = User::factory()->create(['role' => 'donor']);

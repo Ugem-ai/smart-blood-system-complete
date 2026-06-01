@@ -38,8 +38,10 @@
       </div>
 
       <button
+        type="button"
         @click="loadRequests"
-        class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-gray-700 font-medium transition-colors hover:bg-gray-50 lg:ml-auto"
+        :disabled="loading"
+        class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-gray-700 font-medium transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 lg:ml-auto"
       >
         🔄 Refresh
       </button>
@@ -114,6 +116,7 @@
           <!-- Actions -->
           <div class="flex items-end gap-2 sm:col-span-2 xl:col-span-1">
             <button
+              type="button"
               @click="viewDetails(request)"
               class="inline-flex w-full items-center justify-center rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700"
             >
@@ -187,6 +190,7 @@
 
         <div class="flex flex-col gap-3 sm:flex-row">
           <button
+            type="button"
             v-if="selectedRequest.status !== 'completed'"
             @click="cancelRequest(selectedRequest)"
             class="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors"
@@ -194,6 +198,7 @@
             ❌ Cancel Request
           </button>
           <button
+            type="button"
             @click="selectedRequest = null"
             class="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
           >

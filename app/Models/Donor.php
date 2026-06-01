@@ -36,6 +36,11 @@ class Donor extends Model
         'reliability_score',
         'privacy_consent_at',
         'donor_preferences',
+        'willing_for_emergency_travel',
+        'normal_travel_radius',
+        'emergency_travel_radius',
+        'preferred_prc_chapter',
+        'availability_status',
     ];
 
     protected function casts(): array
@@ -50,6 +55,10 @@ class Donor extends Model
             'reliability_score' => 'decimal:2',
             'privacy_consent_at' => 'datetime',
             'donor_preferences' => 'array',
+            'willing_for_emergency_travel' => 'boolean',
+            'normal_travel_radius' => 'integer',
+            'emergency_travel_radius' => 'integer',
+            'availability_status' => 'string',
             'password' => 'hashed',
         ];
     }

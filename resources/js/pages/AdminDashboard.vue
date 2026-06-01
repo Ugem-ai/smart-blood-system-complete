@@ -25,6 +25,7 @@ const BloodRequestsPage = defineAsyncComponent(() => import('../components/admin
 const DonorTable = defineAsyncComponent(() => import('../components/admin/DonorTable.vue'));
 const HospitalTable = defineAsyncComponent(() => import('../components/admin/HospitalTable.vue'));
 const MatchMonitor = defineAsyncComponent(() => import('../components/admin/MatchMonitor.vue'));
+const ChapterInventoryPage = defineAsyncComponent(() => import('../components/admin/ChapterInventoryPage.vue'));
 const NotificationPanel = defineAsyncComponent(() => import('../components/admin/NotificationPanel.vue'));
 const AnalyticsCharts = defineAsyncComponent(() => import('../components/admin/AnalyticsCharts.vue'));
 const AuditLogTable = defineAsyncComponent(() => import('../components/admin/AuditLogTable.vue'));
@@ -40,6 +41,7 @@ const modules = [
   { id: 'matching', label: 'PAST-Match Monitoring', icon: '🎯', section: 'Command Center' },
   { id: 'donors', label: 'Donor Management', icon: '🧑', section: 'Network Management' },
   { id: 'hospitals', label: 'Hospital Management', icon: '🏥', section: 'Network Management' },
+  { id: 'inventory-sync', label: 'Chapter Inventory', icon: '⇄', section: 'Network Management' },
   { id: 'notifications', label: 'Notifications', icon: '🔔', section: 'Oversight' },
   { id: 'analytics', label: 'Analytics', icon: '📈', section: 'Oversight' },
   { id: 'logs', label: 'Audit Logs', icon: '🧾', section: 'Oversight' },
@@ -53,6 +55,7 @@ const moduleSubtitleMap = {
   hospitals: 'Supervise hospital readiness, emergency demand, and network-wide coordination posture.',
   matching: 'Review PAST-Match execution, ranking behavior, and active emergency coordination signals.',
   notifications: 'Track outbound delivery, response follow-through, and escalation messaging in one queue.',
+  'inventory-sync': 'Monitor PRC chapter stock, transfer readiness, and cross-branch shortages.',
   analytics: 'Measure demand trends, response performance, and system health at an administrative level.',
   logs: 'Audit sensitive actions, role violations, and operational events with compliance-focused visibility.',
   settings: 'Control platform-wide emergency, security, matching, and governance settings.',
@@ -65,6 +68,7 @@ const moduleComponentMap = {
   hospitals: HospitalTable,
   matching: MatchMonitor,
   notifications: NotificationPanel,
+  'inventory-sync': ChapterInventoryPage,
   analytics: AnalyticsCharts,
   logs: AuditLogTable,
   settings: SettingsForm,

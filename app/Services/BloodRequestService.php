@@ -7,9 +7,9 @@ use App\Models\BloodRequest;
 class BloodRequestService
 {
     private const WORKFLOW_TRANSITIONS = [
-        'pending' => ['matching', 'cancelled'],
-        'matching' => ['matched', 'confirmed', 'completed', 'fulfilled', 'cancelled'],
-        'matched' => ['confirmed', 'completed', 'fulfilled', 'cancelled'],
+        'pending'   => ['matching', 'cancelled'],
+        'matching'  => ['matched', 'confirmed', 'completed', 'fulfilled', 'cancelled'],
+        'matched'   => ['confirmed', 'completed', 'fulfilled', 'cancelled'],
         'confirmed' => ['completed', 'fulfilled', 'cancelled'],
         'completed' => ['fulfilled'],
         'fulfilled' => [],
@@ -80,13 +80,29 @@ class BloodRequestService
     /**
      * Re-derive and persist tracking counters from actual relation records.
      * Call after donors respond or donations are confirmed.
+     *
+     * FIX: matched_donors_count previously only counted rows in request_matches
+     * (algorithm results). Donors who self-respond via broadcast have a
+     * donor_responses row but no request_match row, so they were invisible and
+     * the "Matched" badge always showed 0. We now count both sources and
+     * deduplicate by donor_id using a NOT IN subquery.
      */
     public function syncTrackingCounts(BloodRequest $bloodRequest): void
     {
-        $matched    = $bloodRequest->matches()->count();
-        $responses  = $bloodRequest->donorResponses()->count();
-        $accepted   = $bloodRequest->donorResponses()->where('response', 'accepted')->count();
-        $fulfilled  = (int) $bloodRequest->donationHistories()->sum('units');
+        // Donors ranked by the PAST-Match algorithm (have a request_match row)
+        $algorithmMatched = $bloodRequest->matches()->count();
+
+        // Donors who self-responded via broadcast/public listing and bypassed
+        // the algorithm entirely — they have a donor_response row but no
+        // request_match row, so we exclude any already counted above.
+        $selfResponded = $bloodRequest->donorResponses()
+            ->whereNotIn('donor_id', $bloodRequest->matches()->select('donor_id'))
+            ->count();
+
+        $matched   = $algorithmMatched + $selfResponded;
+        $responses = $bloodRequest->donorResponses()->count();
+        $accepted  = $bloodRequest->donorResponses()->where('response', 'accepted')->count();
+        $fulfilled = (int) $bloodRequest->donationHistories()->sum('units');
 
         $bloodRequest->updateQuietly([
             'matched_donors_count' => $matched,
@@ -111,7 +127,7 @@ class BloodRequestService
     public function invalidTransitionReason(BloodRequest $bloodRequest, string $targetStatus): ?string
     {
         $currentStatus = strtolower((string) ($bloodRequest->status ?: 'pending'));
-        $targetStatus = strtolower($targetStatus);
+        $targetStatus  = strtolower($targetStatus);
 
         if ($currentStatus === $targetStatus) {
             return null;

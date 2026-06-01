@@ -8,23 +8,29 @@ use App\Models\DonorRequestResponse;
 use App\Models\RequestMatch;
 use App\Services\BloodRequestService;
 use App\Services\DonorAllocationService;
+use App\Services\DonorCooldownService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class DonorResponseController extends Controller
 {
-    public function accept(Request $request, NotificationService $notificationService, DonorAllocationService $allocationService, BloodRequestService $bloodRequestService): JsonResponse
+    public function accept(Request $request, NotificationService $notificationService, DonorAllocationService $allocationService, BloodRequestService $bloodRequestService, DonorCooldownService $cooldownService): JsonResponse
     {
-        return $this->handleResponse($request, 'accepted', $notificationService, $allocationService, $bloodRequestService);
+        return $this->handleResponse($request, 'accepted', $notificationService, $allocationService, $bloodRequestService, $cooldownService);
     }
 
-    public function decline(Request $request, NotificationService $notificationService, DonorAllocationService $allocationService, BloodRequestService $bloodRequestService): JsonResponse
+    public function decline(Request $request, NotificationService $notificationService, DonorAllocationService $allocationService, BloodRequestService $bloodRequestService, DonorCooldownService $cooldownService): JsonResponse
     {
-        return $this->handleResponse($request, 'declined', $notificationService, $allocationService, $bloodRequestService);
+        return $this->handleResponse($request, 'declined', $notificationService, $allocationService, $bloodRequestService, $cooldownService);
     }
 
-    protected function handleResponse(Request $request, string $response, NotificationService $notificationService, DonorAllocationService $allocationService, BloodRequestService $bloodRequestService): JsonResponse
+    public function maybe(Request $request, NotificationService $notificationService, DonorAllocationService $allocationService, BloodRequestService $bloodRequestService, DonorCooldownService $cooldownService): JsonResponse
+    {
+        return $this->handleResponse($request, 'maybe', $notificationService, $allocationService, $bloodRequestService, $cooldownService);
+    }
+
+    protected function handleResponse(Request $request, string $response, NotificationService $notificationService, DonorAllocationService $allocationService, BloodRequestService $bloodRequestService, DonorCooldownService $cooldownService): JsonResponse
     {
         $validated = $request->validate([
             'blood_request_id' => ['required', 'integer', 'exists:blood_requests,id'],
@@ -43,6 +49,14 @@ class DonorResponseController extends Controller
         $bloodRequest = BloodRequest::query()->with('hospital')->findOrFail($validated['blood_request_id']);
 
         if ($response === 'accepted') {
+            if (! $cooldownService->isDonationEligible($donor)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Donor is not eligible to accept a new request at this time due to donation recovery interval.',
+                    'data' => null,
+                ], 422);
+            }
+
             $activeAllocation = $allocationService->activeAllocationForDonor($donor->id, $bloodRequest->id);
 
             if ($activeAllocation) {

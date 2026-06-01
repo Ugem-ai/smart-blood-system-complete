@@ -58,7 +58,13 @@
             <div class="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">{{ item.label }}</div>
             <template v-if="editing">
               <input
-                v-if="item.type !== 'select'"
+                v-if="item.type === 'checkbox'"
+                v-model="form[item.key]"
+                :type="item.type"
+                class="mt-3 h-5 w-5 rounded border-gray-200 text-red-600 focus:ring-red-500"
+              >
+              <input
+                v-else-if="item.type !== 'select'"
                 v-model="form[item.key]"
                 :type="item.type"
                 :step="item.step"
@@ -178,6 +184,10 @@ const medicalFields = computed(() => [
   { key: 'last_donation_date', label: 'Last donation', type: 'date', editable: true, display: formatDate(profile.value.last_donation_date) },
   { key: 'latitude', label: 'Latitude', type: 'number', step: '0.0000001', editable: true, display: profile.value.latitude ?? 'Not available' },
   { key: 'longitude', label: 'Longitude', type: 'number', step: '0.0000001', editable: true, display: profile.value.longitude ?? 'Not available' },
+  { key: 'normal_travel_radius', label: 'Normal travel radius (km)', type: 'number', step: '1', editable: true, display: profile.value.travel_preferences?.normal_travel_radius ?? '5' },
+  { key: 'emergency_travel_radius', label: 'Emergency travel radius (km)', type: 'number', step: '1', editable: true, display: profile.value.travel_preferences?.emergency_travel_radius ?? 'Not set' },
+  { key: 'willing_for_emergency_travel', label: 'Willing for emergency travel', type: 'checkbox', editable: true, display: profile.value.travel_preferences?.willing_for_emergency_travel ? 'Yes' : 'No' },
+  { key: 'preferred_prc_chapter', label: 'Preferred PRC chapter', type: 'text', editable: true, display: profile.value.travel_preferences?.preferred_prc_chapter || 'Not specified' },
   { key: 'privacy_consent_at', label: 'Privacy consent', editable: false, display: formatDate(profile.value.privacy_consent_at) },
   { key: 'eligibility', label: 'Eligibility', editable: false, display: profile.value.donation_eligibility?.is_eligible ? 'Eligible to donate' : `Eligible on ${formatDate(profile.value.donation_eligibility?.next_eligible_date)}` },
   { key: 'screening', label: 'Screening status', editable: false, display: profile.value.donation_eligibility?.last_screening_result || 'Not available' },
@@ -194,6 +204,10 @@ function syncForm() {
     last_donation_date: profile.value.last_donation_date || '',
     latitude: profile.value.latitude ?? '',
     longitude: profile.value.longitude ?? '',
+    normal_travel_radius: profile.value.travel_preferences?.normal_travel_radius ?? 5,
+    emergency_travel_radius: profile.value.travel_preferences?.emergency_travel_radius ?? '',
+    willing_for_emergency_travel: profile.value.travel_preferences?.willing_for_emergency_travel ?? false,
+    preferred_prc_chapter: profile.value.travel_preferences?.preferred_prc_chapter || '',
   };
 }
 
@@ -222,6 +236,9 @@ async function saveProfile() {
       latitude: form.value.latitude === '' ? null : Number(form.value.latitude),
       longitude: form.value.longitude === '' ? null : Number(form.value.longitude),
       last_donation_date: form.value.last_donation_date || null,
+      normal_travel_radius: form.value.normal_travel_radius ? Number(form.value.normal_travel_radius) : 5,
+      emergency_travel_radius: form.value.emergency_travel_radius === '' ? null : Number(form.value.emergency_travel_radius),
+      willing_for_emergency_travel: Boolean(form.value.willing_for_emergency_travel),
     });
 
     await loadProfile();

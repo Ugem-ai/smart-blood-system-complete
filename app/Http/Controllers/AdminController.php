@@ -52,6 +52,26 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Get the current emergency broadcast mode status.
+     * Accessible to all authenticated users to show system-wide emergency state.
+     */
+    public function getEmergencyBroadcastStatus(EmergencyBroadcastModeService $emergencyBroadcastModeService): JsonResponse
+    {
+        $state = $emergencyBroadcastModeService->state();
+
+        return response()->json([
+            'data' => [
+                'enabled' => $state['enabled'] ?? false,
+                'trigger' => $state['trigger'] ?? null,
+                'activated_at' => $state['activated_at'] ?? null,
+                'expires_at' => $state['expires_at'] ?? null,
+                'active_duration_seconds' => $state['active_duration_seconds'] ?? 0,
+                'is_disaster_response' => $emergencyBroadcastModeService->isDisasterResponseActive(),
+            ],
+        ]);
+    }
+
     public function setEmergencyMode(Request $request, EmergencyBroadcastModeService $emergencyBroadcastModeService): RedirectResponse
     {
         $validated = $request->validate([

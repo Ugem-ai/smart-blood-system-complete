@@ -51,8 +51,8 @@
             </div>
 
             <div class="flex flex-wrap gap-2 lg:justify-end">
-              <button v-if="notification.type === 'request' && notification.requestId && notification.canRespond" type="button" class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="respondingId === notification.requestId" @click.stop="handleResponse(notification, 'accept')">
-                {{ respondingId === notification.requestId && respondingAction === 'accept' ? 'Sending...' : 'Respond Now' }}
+              <button v-if="notification.type === 'request' && notification.requestId && notification.canRespond" type="button" class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="respondingId === notification.requestId || !fatigue.eligible" @click.stop="handleResponse(notification, 'accept')">
+                {{ respondingId === notification.requestId && respondingAction === 'accept' ? 'Sending...' : fatigue.eligible ? 'Respond Now' : 'Not Eligible' }}
               </button>
               <button v-if="notification.type === 'request' && notification.requestId && notification.canRespond" type="button" class="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50" :disabled="respondingId === notification.requestId" @click.stop="handleResponse(notification, 'decline')">
                 {{ respondingId === notification.requestId && respondingAction === 'decline' ? 'Declining...' : 'Decline' }}
@@ -76,6 +76,16 @@ const notifications = ref([]);
 const activeFilter = ref('all');
 const respondingId = ref(null);
 const respondingAction = ref(null);
+const fatigue = ref({
+  eligible: true,
+  fatigue_level: 'none',
+  message: '',
+  days_since_last_donation: null,
+  days_until_eligible: null,
+  next_eligible_date: null,
+  can_be_notified: true,
+  block_reason: null,
+});
 const settings = ref({ ...defaultDonorSettings });
 
 const filterOptions = [
@@ -162,6 +172,7 @@ async function loadNotifications() {
   try {
     const payload = await fetchDonorDashboard();
     settings.value = payload.settings;
+    fatigue.value = payload.fatigue;
     activeFilter.value = payload.settings.urgentOnly ? 'requests' : activeFilter.value;
     notifications.value = buildNotifications(payload);
   } finally {

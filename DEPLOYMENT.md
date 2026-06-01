@@ -83,9 +83,9 @@ MONITORING_METRICS_TOKEN=replace-with-secure-token
 NOTIFICATION_MAX_BURST=20
 
 FCM_SERVER_KEY=
-TWILIO_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_FROM=
+UNISMS_API_KEY=
+UNISMS_SENDER_ID=
+UNISMS_ENDPOINT=https://unismsapi.com/v1/messages
 ```
 
 Run production optimization and migrations:
@@ -219,7 +219,7 @@ chmod +x deployment/scripts/setup-env.sh
 ./deployment/scripts/setup-env.sh your-domain.com 127.0.0.1 3306 smartblood smartblood_user 'replace-with-strong-password'
 ```
 
-Then review `.env` and set secrets (`FCM_SERVER_KEY`, `TWILIO_*`, `MONITORING_METRICS_TOKEN`) before caching config.
+Then review `.env` and set secrets (`FCM_SERVER_KEY`, `UNISMS_API_KEY`, `UNISMS_SENDER_ID`, `MONITORING_METRICS_TOKEN`) before caching config.
 
 ### 9.5 NGINX and SSL activation
 

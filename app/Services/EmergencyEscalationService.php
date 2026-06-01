@@ -75,6 +75,8 @@ class EmergencyEscalationService
                 requestLongitude: $bloodRequest->longitude !== null ? (float) $bloodRequest->longitude : null,
                 distanceLimitKm: self::MAX_FILTER_RADIUS_KM,
                 requestCity: $bloodRequest->city,
+                requestUrgencyLevel: $bloodRequest->urgency_level,
+                requestIsEmergency: $bloodRequest->is_emergency ?? false,
             )
             ->sort(function (array $a, array $b) {
                 $aDistance = $a['distance_km'] ?? INF;

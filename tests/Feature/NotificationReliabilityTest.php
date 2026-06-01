@@ -21,14 +21,14 @@ class NotificationReliabilityTest extends TestCase
         config([
             'services.fcm.server_key' => 'test-fcm-key',
             'services.fcm.endpoint' => 'https://fcm.googleapis.com/fcm/send',
-            'services.twilio.sid' => 'test-sid',
-            'services.twilio.token' => 'test-token',
-            'services.twilio.from' => '+15555550123',
+            'services.unisms.api_key' => 'test-api-key',
+            'services.unisms.sender_id' => 'PRCSMS',
+
         ]);
 
         Http::fake([
             'https://fcm.googleapis.com/*' => Http::response(['failure' => 1], 500),
-            'https://api.twilio.com/*' => Http::response(['sid' => 'SM123'], 201),
+            'https://unismsapi.com/*' => Http::response(['sid' => 'SM123'], 201),
         ]);
 
         [$donor, $request] = $this->makeDonorAndRequest();
@@ -36,7 +36,7 @@ class NotificationReliabilityTest extends TestCase
         app(NotificationService::class)->sendDonorAlert($donor, $request, 8.5);
 
         Http::assertSent(fn ($httpRequest) => str_contains($httpRequest->url(), 'fcm.googleapis.com'));
-        Http::assertSent(fn ($httpRequest) => str_contains($httpRequest->url(), 'api.twilio.com'));
+        Http::assertSent(fn ($httpRequest) => str_contains($httpRequest->url(), 'unismsapi.com'));
 
         $this->assertDatabaseHas('notifications', [
             'user_id' => $donor->user_id,
@@ -55,12 +55,91 @@ class NotificationReliabilityTest extends TestCase
         ]);
     }
 
+    public function test_notification_falls_back_to_email_when_push_and_sms_fail(): void
+    {
+        config([
+            'services.fcm.server_key' => 'test-fcm-key',
+            'services.fcm.endpoint' => 'https://fcm.googleapis.com/fcm/send',
+            'services.unisms.api_key' => 'test-api-key',
+            'services.unisms.sender_id' => 'PRCSMS',
+            'mail.default' => 'log',
+            'mail.from.address' => 'no-reply@example.com',
+            'mail.from.name' => 'Smart Blood',
+        ]);
+
+        Http::fake([
+            'https://fcm.googleapis.com/*' => Http::response(['failure' => 1], 500),
+            'https://unismsapi.com/*' => Http::response(['message' => 'error'], 500),
+        ]);
+
+        [$donor, $request] = $this->makeDonorAndRequest();
+
+        app(NotificationService::class)->sendDonorAlert($donor, $request, 8.5);
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $donor->user_id,
+            'type' => 'emergency_blood_request',
+            'channel' => 'push',
+            'status' => 'failed',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $donor->user_id,
+            'type' => 'emergency_blood_request',
+            'channel' => 'sms',
+            'status' => 'failed',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $donor->user_id,
+            'type' => 'emergency_blood_request',
+            'channel' => 'email',
+            'status' => 'sent',
+        ]);
+
+        $this->assertDatabaseMissing('activity_logs', [
+            'action' => 'notification.delivery.escalated',
+        ]);
+    }
+
+    public function test_sms_is_sent_when_push_token_is_stale(): void
+    {
+        config([
+            'services.unisms.api_key' => 'test-api-key',
+            'services.unisms.sender_id' => 'PRCSMS',
+
+            'services.notifications.push_stale_threshold_minutes' => 30,
+        ]);
+
+        Http::fake([
+            'https://unismsapi.com/*' => Http::response(['sid' => 'SM123'], 201),
+        ]);
+
+        [$donor, $request] = $this->makeDonorAndRequest();
+
+        $donor->user->deviceTokens()->create([
+            'token' => 'web-stale-token',
+            'platform' => 'web',
+            'last_used_at' => now()->subMinutes(60),
+        ]);
+
+        app(NotificationService::class)->sendDonorAlert($donor, $request, 8.5);
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($httpRequest) => str_contains($httpRequest->url(), 'unismsapi.com'));
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $donor->user_id,
+            'type' => 'emergency_blood_request',
+            'channel' => 'sms',
+            'status' => 'sent',
+        ]);
+    }
+
     public function test_sms_retries_until_successful_delivery(): void
     {
         config([
-            'services.twilio.sid' => 'test-sid',
-            'services.twilio.token' => 'test-token',
-            'services.twilio.from' => '+15555550123',
+            'services.unisms.api_key' => 'test-api-key',
+            'services.unisms.sender_id' => 'PRCSMS',
+
             'services.notifications.sms_retry_attempts' => 3,
             'services.notifications.sms_retry_delay_ms' => 1,
         ]);

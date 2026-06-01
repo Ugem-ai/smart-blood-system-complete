@@ -41,6 +41,44 @@ export const urgencyTheme = {
   },
 };
 
+export const fatigueTheme = {
+  none: {
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    text: 'text-emerald-800',
+    label: 'text-emerald-700',
+    icon: '✅',
+  },
+  low: {
+    bg: 'bg-yellow-50',
+    border: 'border-yellow-200',
+    text: 'text-yellow-800',
+    label: 'text-yellow-700',
+    icon: '⏳',
+  },
+  moderate: {
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
+    text: 'text-orange-800',
+    label: 'text-orange-700',
+    icon: '⚠️',
+  },
+  high: {
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+    text: 'text-red-800',
+    label: 'text-red-700',
+    icon: '🚫',
+  },
+  critical: {
+    bg: 'bg-red-100',
+    border: 'border-red-300',
+    text: 'text-red-900',
+    label: 'text-red-800',
+    icon: '🛑',
+  },
+};
+
 export async function fetchDonorDashboard() {
   const response = await api.get('/donor/dashboard');
   const data = response.data?.data || {};
@@ -51,6 +89,16 @@ export async function fetchDonorDashboard() {
   return {
     profile: data.profile || {},
     eligibility: data.eligibility || {},
+    fatigue: data.fatigue || {
+      eligible: true,
+      fatigue_level: 'none',
+      message: '',
+      days_since_last_donation: null,
+      days_until_eligible: null,
+      next_eligible_date: null,
+      can_be_notified: true,
+      block_reason: null,
+    },
     stats: data.stats || {},
     requests,
     history,

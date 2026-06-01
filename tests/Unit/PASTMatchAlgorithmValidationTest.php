@@ -24,6 +24,7 @@ class PASTMatchAlgorithmValidationTest extends TestCase
             'availability' => true,
             'last_donation_date' => now()->subDays(90)->toDateString(),
             'reliability_score' => 70,
+            'normal_travel_radius' => 50,
         ]);
 
         $this->createDonor([
@@ -35,6 +36,7 @@ class PASTMatchAlgorithmValidationTest extends TestCase
             'availability' => true,
             'last_donation_date' => now()->subDays(90)->toDateString(),
             'reliability_score' => 70,
+            'normal_travel_radius' => 50,
         ]);
 
         $filter = app(DonorFilterService::class);
@@ -128,6 +130,100 @@ class PASTMatchAlgorithmValidationTest extends TestCase
         $this->assertGreaterThan($ranked[1]['score'], $ranked[0]['score']);
     }
 
+    public function test_willing_donor_within_emergency_radius_is_included_in_emergency_matching(): void
+    {
+        $donor = $this->createDonor([
+            'email' => 'emergency-willing@example.com',
+            'name' => 'Emergency Willing Donor',
+            'blood_type' => 'A+',
+            'latitude' => 0.0000000,
+            'longitude' => 0.5000000, // ~55km
+            'availability' => true,
+            'last_donation_date' => now()->subDays(90)->toDateString(),
+            'reliability_score' => 80,
+            'willing_for_emergency_travel' => true,
+            'normal_travel_radius' => 5,
+            'emergency_travel_radius' => 100,
+        ]);
+
+        $filter = app(DonorFilterService::class);
+
+        $filtered = $filter->filterForRequest('A+', 0.0, 0.0, 200, null, null, true);
+
+        $this->assertTrue(
+            $filtered->pluck('donor.id')->contains($donor->id),
+            'Donor willing for emergency travel within emergency radius should be included when emergency travel is permitted.'
+        );
+    }
+
+    public function test_donor_with_matching_preferred_prc_chapter_is_ranked_higher(): void
+    {
+        $this->createDonor([
+            'email' => 'chapter-pref@example.com',
+            'name' => 'Preferred Chapter Donor',
+            'blood_type' => 'A+',
+            'latitude' => 0.0,
+            'longitude' => 0.0100000,
+            'availability' => true,
+            'last_donation_date' => now()->subDays(90)->toDateString(),
+            'reliability_score' => 75,
+            'preferred_prc_chapter' => 'Manila Chapter',
+        ]);
+
+        $this->createDonor([
+            'email' => 'no-pref@example.com',
+            'name' => 'No Preference Donor',
+            'blood_type' => 'A+',
+            'latitude' => 0.0,
+            'longitude' => 0.0100000,
+            'availability' => true,
+            'last_donation_date' => now()->subDays(90)->toDateString(),
+            'reliability_score' => 75,
+        ]);
+
+        $filter = app(DonorFilterService::class);
+        $pastMatch = app(PASTMatch::class);
+
+        $filtered = $filter->filterForRequest('A+', 0.0, 0.0, 50);
+        $ranked = $pastMatch->rankDonors($filtered, ['urgency_level' => 'medium', 'request_chapter_name' => 'Manila Chapter']);
+
+        $this->assertSame('Preferred Chapter Donor', $ranked->first()['donor']->name);
+        $this->assertGreaterThan($ranked[1]['score'], $ranked[0]['score']);
+        $this->assertSame(100.0, $ranked->first()['factors']['chapter_preference']);
+    }
+
+    public function test_donor_beyond_normal_radius_is_included_with_lower_travel_willingness_when_emergency_travel_is_not_allowed(): void
+    {
+        $donor = $this->createDonor([
+            'email' => 'normal-radius-boundary@example.com',
+            'name' => 'Normal Radius Donor',
+            'blood_type' => 'A+',
+            'latitude' => 0.0000000,
+            'longitude' => 0.0900900, // ~10km
+            'availability' => true,
+            'last_donation_date' => now()->subDays(90)->toDateString(),
+            'reliability_score' => 80,
+            'normal_travel_radius' => 5,
+            'emergency_travel_radius' => 25,
+        ]);
+
+        $filter = app(DonorFilterService::class);
+        $pastMatch = app(PASTMatch::class);
+
+        $filtered = $filter->filterForRequest('A+', 0.0, 0.0, 50);
+        $this->assertTrue(
+            $filtered->pluck('donor.id')->contains($donor->id),
+            'Donor outside normal travel radius should still be considered within the request radius when emergency travel is not enabled.'
+        );
+
+        $ranked = $pastMatch->rankDonors($filtered);
+        $candidate = $ranked->firstWhere('donor.id', $donor->id);
+
+        $this->assertNotNull($candidate);
+        $this->assertLessThan(100.0, $candidate['factors']['travel_willingness']);
+        $this->assertGreaterThanOrEqual(20.0, $candidate['factors']['travel_willingness']);
+    }
+
     public function test_same_city_donor_without_coordinates_uses_estimated_location_fallback(): void
     {
         $fallbackDonor = $this->createDonor([
@@ -140,6 +236,7 @@ class PASTMatchAlgorithmValidationTest extends TestCase
             'availability' => true,
             'last_donation_date' => now()->subDays(120)->toDateString(),
             'reliability_score' => 72,
+            'normal_travel_radius' => 50,
         ]);
 
         $filter = app(DonorFilterService::class);
@@ -180,6 +277,11 @@ class PASTMatchAlgorithmValidationTest extends TestCase
             'last_donation_date' => $attributes['last_donation_date'] ?? null,
             'availability' => (bool) ($attributes['availability'] ?? true),
             'reliability_score' => (float) ($attributes['reliability_score'] ?? 0),
+            'willing_for_emergency_travel' => (bool) ($attributes['willing_for_emergency_travel'] ?? false),
+            'normal_travel_radius' => $attributes['normal_travel_radius'] ?? 5,
+            'emergency_travel_radius' => $attributes['emergency_travel_radius'] ?? null,
+            'preferred_prc_chapter' => $attributes['preferred_prc_chapter'] ?? null,
+            'availability_status' => $attributes['availability_status'] ?? null,
             'privacy_consent_at' => now(),
         ]);
     }

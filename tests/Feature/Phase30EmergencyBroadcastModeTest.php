@@ -71,7 +71,7 @@ class Phase30EmergencyBroadcastModeTest extends TestCase
     {
         Http::fake([
             'https://fcm.googleapis.com/*' => Http::response(['success' => true], 200),
-            'https://api.twilio.com/*' => Http::response(['sid' => 'SM123'], 201),
+            'https://unismsapi.com/*' => Http::response(['sid' => 'SM123'], 201),
             '*' => Http::response(['ok' => true], 200),
         ]);
 
@@ -81,9 +81,9 @@ class Phase30EmergencyBroadcastModeTest extends TestCase
             'services.notifications.pacing_us' => 0,
             'services.fcm.server_key' => 'test-fcm-key',
             'services.fcm.endpoint' => 'https://fcm.googleapis.com/fcm/send',
-            'services.twilio.sid' => 'test-sid',
-            'services.twilio.token' => 'test-token',
-            'services.twilio.from' => '+15555550123',
+            'services.unisms.api_key' => 'test-api-key',
+            'services.unisms.sender_id' => 'PRCSMS',
+
         ]);
 
         $hospitalUser = User::factory()->create(['role' => 'hospital']);

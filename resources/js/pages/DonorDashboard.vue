@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="flex min-h-dvh overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(254,226,226,0.8),_rgba(248,250,252,0.95)_36%,_rgba(241,245,249,1)_100%)] lg:h-screen">
+  <div class="flex min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(254,226,226,0.8),_rgba(248,250,252,0.95)_36%,_rgba(241,245,249,1)_100%)] lg:h-screen">
     <button
       v-if="mobileSidebarOpen"
       type="button"

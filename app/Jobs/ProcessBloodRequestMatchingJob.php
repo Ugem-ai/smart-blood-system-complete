@@ -92,17 +92,81 @@ class ProcessBloodRequestMatchingJob implements ShouldQueue, ShouldBeUnique
         }
 
         try {
+            $requestChapterName = $donorFilterService->resolveRequestChapterName(
+                $bloodRequest->latitude !== null ? (float) $bloodRequest->latitude : null,
+                $bloodRequest->longitude !== null ? (float) $bloodRequest->longitude : null,
+                $bloodRequest->city,
+            );
+
             $filteredDonors = $donorFilterService->filterForRequest(
                 requestedBloodType: $bloodRequest->blood_type,
                 requestLatitude: $bloodRequest->latitude !== null ? (float) $bloodRequest->latitude : null,
                 requestLongitude: $bloodRequest->longitude !== null ? (float) $bloodRequest->longitude : null,
                 distanceLimitKm: $this->distanceLimitKm ?? DonorFilterService::DEFAULT_DISTANCE_LIMIT_KM,
                 requestCity: $bloodRequest->city,
+                requestUrgencyLevel: $bloodRequest->urgency_level,
+                requestIsEmergency: $bloodRequest->is_emergency,
             );
 
             $topMatches = $pastMatch->rankDonors($filteredDonors, [
                 'urgency_level' => $bloodRequest->urgency_level,
+                'request_chapter_name' => $requestChapterName,
             ])->take(10)->values();
+
+            // If critical and local inventory insufficient, perform progressive emergency expansion
+            $neededUnits = (int) ($bloodRequest->units_required ?? $bloodRequest->requested_units ?? 1);
+            $hospitalInventoryUnits = (int) ($bloodRequest->hospital->bloodInventories()->where('blood_type', $bloodRequest->blood_type)->value('units_available') ?? 0);
+
+            if (strtolower((string) $bloodRequest->urgency_level) === 'critical' && $hospitalInventoryUnits < $neededUnits && $topMatches->count() < $neededUnits) {
+                $baseRadius = (int) ($this->distanceLimitKm ?? DonorFilterService::DEFAULT_DISTANCE_LIMIT_KM);
+                $radii = array_values(array_unique(array_filter([ $baseRadius, 5, 10, 25, 200 ])));
+
+                $existingDonorIds = $topMatches->pluck('donor.id')->all();
+
+                foreach ($radii as $radius) {
+                    if (count($existingDonorIds) >= $neededUnits) {
+                        break;
+                    }
+
+                    // Skip radius smaller than base when base already covers it
+                    if ($radius <= $baseRadius) {
+                        continue;
+                    }
+
+                    $expanded = $donorFilterService->filterForRequest(
+                        requestedBloodType: $bloodRequest->blood_type,
+                        requestLatitude: $bloodRequest->latitude !== null ? (float) $bloodRequest->latitude : null,
+                        requestLongitude: $bloodRequest->longitude !== null ? (float) $bloodRequest->longitude : null,
+                        distanceLimitKm: $radius,
+                        requestCity: $bloodRequest->city,
+                        excludingRequestId: $bloodRequest->id,
+                        allowEmergencyTravel: true,
+                        requestUrgencyLevel: $bloodRequest->urgency_level,
+                        requestIsEmergency: $bloodRequest->is_emergency,
+                    );
+
+                    $expandedMatches = $pastMatch->rankDonors($expanded, [
+                        'urgency_level' => $bloodRequest->urgency_level,
+                        'request_chapter_name' => $requestChapterName,
+                    ])->values();
+
+                    foreach ($expandedMatches as $match) {
+                        $donorId = $match['donor']->id;
+                        if (in_array($donorId, $existingDonorIds, true)) {
+                            continue;
+                        }
+
+                        $existingDonorIds[] = $donorId;
+                        $topMatches->push($match);
+
+                        if (count($existingDonorIds) >= $neededUnits) {
+                            break 2;
+                        }
+                    }
+                }
+                // Re-rank combined matches and limit to top 10
+                $topMatches = $pastMatch->rankDonors($topMatches->pluck('donor')->map(fn($d) => ['donor' => $d])->values(), ['urgency_level' => $bloodRequest->urgency_level])->take(10)->values();
+            }
 
             foreach ($topMatches as $index => $match) {
                 RequestMatch::query()->updateOrCreate(
@@ -135,7 +199,8 @@ class ProcessBloodRequestMatchingJob implements ShouldQueue, ShouldBeUnique
 
             if ($topMatches->isNotEmpty()) {
                 SendEmergencyNotificationsJob::dispatch(
-                    bloodRequestId: $bloodRequest->id
+                    bloodRequestId: $bloodRequest->id,
+                    matchedDonors: $topMatches->pluck('donor.id')->all(),
                 )->onQueue('notifications');
             }
 

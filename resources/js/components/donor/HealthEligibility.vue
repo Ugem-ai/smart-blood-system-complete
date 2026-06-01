@@ -1,5 +1,34 @@
 <template>
   <div class="mx-auto flex max-w-[96rem] flex-col gap-6">
+    <div
+      v-if="fatigue.fatigue_level && fatigue.fatigue_level !== 'none'"
+      class="rounded-[2rem] border p-5 flex items-start gap-4 shadow-sm"
+      :class="[
+        fatigueTheme[fatigue.fatigue_level]?.bg,
+        fatigueTheme[fatigue.fatigue_level]?.border,
+      ]"
+    >
+      <div class="text-2xl mt-0.5">{{ fatigueTheme[fatigue.fatigue_level]?.icon }}</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold uppercase tracking-[0.18em]" :class="fatigueTheme[fatigue.fatigue_level]?.label">
+          Fatigue Warning
+        </div>
+        <div class="mt-1 text-sm font-semibold" :class="fatigueTheme[fatigue.fatigue_level]?.text">
+          {{ fatigue.message }}
+        </div>
+        <div v-if="fatigue.next_eligible_date" class="mt-1 text-xs" :class="fatigueTheme[fatigue.fatigue_level]?.text">
+          Next eligible date: <span class="font-semibold">{{ formatDate(fatigue.next_eligible_date) }}</span>
+        </div>
+      </div>
+      <div
+        v-if="!fatigue.can_be_notified"
+        class="flex-shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+        :class="[fatigueTheme[fatigue.fatigue_level]?.text, fatigueTheme[fatigue.fatigue_level]?.bg]"
+      >
+        Alerts Paused
+      </div>
+    </div>
+
     <section class="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
@@ -65,10 +94,11 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { fetchDonorDashboard, formatDate } from '../../lib/donorPanel';
+import { fetchDonorDashboard, formatDate, fatigueTheme } from '../../lib/donorPanel';
 
 const profile = ref({});
 const eligibility = ref({});
+const fatigue = ref({});
 
 const checklist = computed(() => [
   {
@@ -77,9 +107,19 @@ const checklist = computed(() => [
     pass: Boolean(eligibility.value.is_eligible),
   },
   {
+    title: 'Fatigue level is low',
+    detail: fatigue.value.message || 'No fatigue concerns at this time.',
+    pass: fatigue.value.fatigue_level === 'none' || fatigue.value.fatigue_level === 'low',
+  },
+  {
     title: 'Availability is active',
     detail: profile.value.availability ? 'Hospitals can route requests to you right now.' : 'Enable availability so emergency coordinators can contact you.',
     pass: Boolean(profile.value.availability),
+  },
+  {
+    title: 'Notifications are enabled',
+    detail: fatigue.value.can_be_notified ? 'You will receive alerts for new requests.' : 'Alerts are paused due to high fatigue levels.',
+    pass: Boolean(fatigue.value.can_be_notified),
   },
   {
     title: 'Privacy consent recorded',
@@ -99,6 +139,7 @@ async function loadData() {
   const payload = await fetchDonorDashboard();
   profile.value = payload.profile;
   eligibility.value = payload.eligibility;
+  fatigue.value = payload.fatigue;
 }
 
 onMounted(loadData);

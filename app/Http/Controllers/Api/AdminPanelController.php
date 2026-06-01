@@ -125,11 +125,17 @@ class AdminPanelController extends Controller
         $validated = $request->validate([
             'urgency_threshold' => ['required', 'integer', 'min:1', 'max:100'],
             'notification_rule' => ['required', 'string', 'in:critical-only,balanced,broadcast-all,emergency-active'],
-            'weights.priority' => ['required', 'numeric', 'min:0', 'max:1'],
-            'weights.availability' => ['required', 'numeric', 'min:0', 'max:1'],
-            'weights.distance' => ['required', 'numeric', 'min:0', 'max:1'],
-            'weights.time' => ['required', 'numeric', 'min:0', 'max:1'],
+            'weights.priority' => ['required_without:past_match_weights', 'numeric', 'min:0', 'max:1'],
+            'weights.availability' => ['required_without:past_match_weights', 'numeric', 'min:0', 'max:1'],
+            'weights.distance' => ['required_without:past_match_weights', 'numeric', 'min:0', 'max:1'],
+            'weights.time' => ['required_without:past_match_weights', 'numeric', 'min:0', 'max:1'],
+            'past_match_weights' => ['sometimes', 'array'],
+            'past_match_weights.priority' => ['required_without:weights', 'numeric', 'min:0', 'max:1'],
+            'past_match_weights.availability' => ['required_without:weights', 'numeric', 'min:0', 'max:1'],
+            'past_match_weights.distance' => ['required_without:weights', 'numeric', 'min:0', 'max:1'],
+            'past_match_weights.time' => ['required_without:weights', 'numeric', 'min:0', 'max:1'],
             'weight_profiles' => ['sometimes', 'array'],
+            'past_match_weight_profiles' => ['sometimes', 'array'],
             'control_center' => ['sometimes', 'array'],
             'weight_profiles.low.priority' => ['required_with:weight_profiles', 'numeric', 'min:0', 'max:1'],
             'weight_profiles.low.availability' => ['required_with:weight_profiles', 'numeric', 'min:0', 'max:1'],
@@ -147,13 +153,29 @@ class AdminPanelController extends Controller
             'weight_profiles.critical.availability' => ['required_with:weight_profiles', 'numeric', 'min:0', 'max:1'],
             'weight_profiles.critical.distance' => ['required_with:weight_profiles', 'numeric', 'min:0', 'max:1'],
             'weight_profiles.critical.time' => ['required_with:weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.low.priority' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.low.availability' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.low.distance' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.low.time' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.medium.priority' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.medium.availability' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.medium.distance' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.medium.time' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.high.priority' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.high.availability' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.high.distance' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.high.time' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.critical.priority' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.critical.availability' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.critical.distance' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
+            'past_match_weight_profiles.critical.time' => ['required_with:past_match_weight_profiles', 'numeric', 'min:0', 'max:1'],
         ]);
 
         $settings = $systemSettingsService->update([
             'urgency_threshold' => $validated['urgency_threshold'],
             'notification_rule' => $validated['notification_rule'],
-            'weights' => $validated['weights'],
-            'weight_profiles' => $validated['weight_profiles'] ?? null,
+            'weights' => $validated['weights'] ?? $validated['past_match_weights'],
+            'weight_profiles' => $validated['weight_profiles'] ?? $validated['past_match_weight_profiles'] ?? null,
             'control_center' => $validated['control_center'] ?? null,
         ], $request->user()?->id);
 
@@ -1789,24 +1811,59 @@ class AdminPanelController extends Controller
         return (float) $request->created_at->diffInSeconds($firstResponse);
     }
 
-    public function requestMatchedDonors(BloodRequest $bloodRequest): JsonResponse
-    {
-        $rankedDonors = $bloodRequest->matches()
-            ->with('donor')
-            ->orderBy('rank')
-            ->get()
-            ->map(fn (RequestMatch $match) => [
-                'donor_id' => $match->donor_id,
-                'donor_name' => $match->donor?->name ?? 'Unknown',
-                'priority_score' => 0,
-                'distance_score' => 0,
-                'availability_score' => 0,
-                'response_history_score' => 0,
-                'total_compatibility_score' => (int) round($match->score),
-            ]);
+   public function requestMatchedDonors(BloodRequest $bloodRequest): JsonResponse
+{
+    $bloodRequest->loadMissing(['donorResponses.donor']);
 
-        return response()->json(['data' => ['ranked_donors' => $rankedDonors]]);
+    $matchRows = $bloodRequest->matches()
+        ->with('donor')
+        ->orderBy('rank')
+        ->get();
+
+    $donorIdsSeen = [];
+
+    $rankedDonors = $matchRows
+        ->map(function (RequestMatch $match) use (&$donorIdsSeen) {
+            $donorIdsSeen[$match->donor_id] = true;
+
+            return [
+                'donor_id'                  => $match->donor_id,
+                'donor_name'                => $match->donor?->name ?? 'Unknown',
+                'priority_score'            => 0,
+                'distance_score'            => 0,
+                'availability_score'        => 0,
+                'response_history_score'    => 0,
+                'total_compatibility_score' => (int) round((float) $match->score),
+                'source'                    => 'algorithm',
+            ];
+        })
+        ->values()
+        ->toArray();
+
+    $selfResponded = $bloodRequest->donorResponses
+        ->filter(fn ($resp) =>
+            $resp->donor !== null
+            && ! isset($donorIdsSeen[$resp->donor_id])
+        )
+        ->values();
+
+    foreach ($selfResponded as $resp) {
+        $rankedDonors[] = [
+            'donor_id'                  => $resp->donor_id,
+            'donor_name'                => $resp->donor->name ?? 'Unknown',
+            'priority_score'            => 0,
+            'distance_score'            => 0,
+            'availability_score'        => 0,
+            'response_history_score'    => 0,
+            'total_compatibility_score' => 0,
+            'source'                    => 'self_responded',
+            'response'                  => $resp->response,
+            'responded_at'              => optional($resp->responded_at)?->toISOString(),
+        ];
     }
+
+    return response()->json(['data' => ['ranked_donors' => $rankedDonors]]);
+}
 
     public function pastMatchRequestOptions(Request $request): JsonResponse
     {
@@ -2020,6 +2077,8 @@ class AdminPanelController extends Controller
             distanceLimitKm: (int) round((float) ($bloodRequest->distance_limit_km ?? DonorFilterService::DEFAULT_DISTANCE_LIMIT_KM)),
             requestCity: $bloodRequest->city,
             excludingRequestId: $bloodRequest->id,
+            requestUrgencyLevel: $bloodRequest->urgency_level,
+            requestIsEmergency: $bloodRequest->is_emergency,
         );
 
         $rankedCandidates = $pastMatch->rankDonors($filteredDonors, [
@@ -3208,7 +3267,12 @@ class AdminPanelController extends Controller
             $operationalScore = round((float) ($storedMatch?->score ?? $candidate['operational_score'] ?? $candidate['score'] ?? $finalScore), 2);
             $emergencyAdjustment = round((float) ($candidate['emergency_adjustment'] ?? max(0, $operationalScore - $finalScore)), 2);
             $cooldownPenalty = round((float) ($candidate['cooldown_penalty'] ?? 0), 2);
+            $settings = app(SystemSettingsService::class)->current();
             $weights = $auditScores['weights'] ?? app(SystemSettingsService::class)->pastMatchWeights();
+            // Ensure legacy-shaped weights (priority/availability/distance/time) are available for the admin payload
+            $legacyWeights = is_array($weights) && array_key_exists('priority', $weights)
+                ? $weights
+                : ($settings['past_match_weights'] ?? ['priority' => 0.0, 'availability' => 0.0, 'distance' => 0.0, 'time' => 0.0]);
             $responseStatus = $responseEntry
                 ? Str::headline((string) $responseEntry->response)
                 : ($alertEntries->isNotEmpty() || $storedMatch ? 'Pending' : 'Queued');
@@ -3233,10 +3297,10 @@ class AdminPanelController extends Controller
                 'cooldown_penalty' => $cooldownPenalty,
                 'operational_score' => $operationalScore,
                 'score_breakdown' => [
-                    'priority' => ['value' => $priorityScore, 'weight' => $weights['priority'], 'contribution' => round($priorityScore * $weights['priority'], 2), 'explanation' => 'Urgency pressure and donor readiness determine whether this donor should be prioritized immediately.'],
-                    'availability' => ['value' => $availabilityScore, 'weight' => $weights['availability'], 'contribution' => round($availabilityScore * $weights['availability'], 2), 'explanation' => 'Availability, donation interval eligibility, and donor reliability estimate whether the donor can safely respond.'],
-                    'distance' => ['value' => $distanceScore, 'weight' => $weights['distance'], 'contribution' => round($distanceScore * $weights['distance'], 2), 'explanation' => 'Distance and transport accessibility reflect feasibility within the active radius.'],
-                    'time' => ['value' => $timeScore, 'weight' => $weights['time'], 'contribution' => round($timeScore * $weights['time'], 2), 'explanation' => 'ETA, traffic, and fastest-arrival signals capture time-critical fit for this request.'],
+                    'priority' => ['value' => $priorityScore, 'weight' => $legacyWeights['priority'], 'contribution' => round($priorityScore * $legacyWeights['priority'], 2), 'explanation' => 'Urgency pressure and donor readiness determine whether this donor should be prioritized immediately.'],
+                    'availability' => ['value' => $availabilityScore, 'weight' => $legacyWeights['availability'], 'contribution' => round($availabilityScore * $legacyWeights['availability'], 2), 'explanation' => 'Availability, donation interval eligibility, and donor reliability estimate whether the donor can safely respond.'],
+                    'distance' => ['value' => $distanceScore, 'weight' => $legacyWeights['distance'], 'contribution' => round($distanceScore * $legacyWeights['distance'], 2), 'explanation' => 'Distance and transport accessibility reflect feasibility within the active radius.'],
+                    'time' => ['value' => $timeScore, 'weight' => $legacyWeights['time'], 'contribution' => round($timeScore * $legacyWeights['time'], 2), 'explanation' => 'ETA, traffic, and fastest-arrival signals capture time-critical fit for this request.'],
                     'final' => ['value' => $finalScore, 'weight' => 1.0, 'contribution' => $finalScore, 'explanation' => 'Normalized compatibility score used for explainability and settings-based audit review.'],
                     'emergency_adjustment' => ['value' => $emergencyAdjustment, 'weight' => null, 'contribution' => $emergencyAdjustment, 'explanation' => 'Emergency mode adds an operational uplift for fastest-response donors without changing the normalized compatibility score.'],
                     'cooldown_penalty' => ['value' => $cooldownPenalty, 'weight' => null, 'contribution' => -$cooldownPenalty, 'explanation' => 'Fairness rotation: donors matched within the last 72 hours receive a small operational deduction so that high-reliability donors do not monopolise every request queue.'],
@@ -3601,14 +3665,36 @@ class AdminPanelController extends Controller
     private function pastMatchFormulaPayload(SystemSettingsService $systemSettingsService, ?string $urgencyLevel = null): array
     {
         $resolvedUrgency = strtolower(trim((string) ($urgencyLevel ?? 'medium')));
-        $weights = $systemSettingsService->pastMatchWeights($resolvedUrgency);
+        $settings = $systemSettingsService->current();
+        // Ensure profiles are legacy-shaped (priority, availability, distance, time)
+        $profilesRaw = $settings['past_match_weight_profiles'] ?? $systemSettingsService->pastMatchWeightProfiles();
+
+        if (! is_array($profilesRaw)) {
+            $profilesRaw = [];
+        }
+
+        $profilesLegacy = [];
+        if (count($profilesRaw) > 0) {
+            $firstProfile = reset($profilesRaw);
+            $isLegacyProfileShape = is_array($firstProfile) && array_key_exists('priority', $firstProfile);
+
+            if ($isLegacyProfileShape) {
+                $profilesLegacy = $systemSettingsService->normalizeLegacyProfiles($profilesRaw);
+            } else {
+                $profilesLegacy = $systemSettingsService->convertProfilesToLegacy($profilesRaw);
+            }
+        }
+
+        // For the admin formula, prefer the active urgency profile if available
+        $activeProfileKey = $resolvedUrgency;
+        $weightsForFormula = $profilesLegacy[$activeProfileKey] ?? $settings['past_match_weights'] ?? $systemSettingsService->pastMatchWeights($resolvedUrgency);
 
         return [
             'label' => 'PAST-Match Base Audit Formula',
             'expression' => $systemSettingsService->formatWeightExpression($resolvedUrgency),
-            'weights' => $weights,
+            'weights' => $weightsForFormula,
             'active_profile' => $resolvedUrgency,
-            'profiles' => $systemSettingsService->pastMatchWeightProfiles(),
+            'profiles' => $profilesLegacy,
             'tooltips' => [
                 'priority' => 'Reflects request urgency pressure and donor readiness for high-priority allocation.',
                 'availability' => 'Combines live availability with donation interval eligibility and donor reliability.',

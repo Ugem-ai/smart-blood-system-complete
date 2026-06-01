@@ -53,6 +53,12 @@ class BloodRequestController extends Controller
             'status' => 'pending',
         ]);
 
+        $requestChapterName = $donorFilterService->resolveRequestChapterName(
+            $bloodRequest->latitude !== null ? (float) $bloodRequest->latitude : null,
+            $bloodRequest->longitude !== null ? (float) $bloodRequest->longitude : null,
+            $bloodRequest->city,
+        );
+
         $topMatches = $pastMatch->rankDonors(
             $donorFilterService->filterForRequest(
                 requestedBloodType: $bloodRequest->blood_type,
@@ -60,8 +66,10 @@ class BloodRequestController extends Controller
                 requestLongitude: $bloodRequest->longitude !== null ? (float) $bloodRequest->longitude : null,
                 distanceLimitKm: $resolvedDistanceLimitKm,
                 requestCity: $bloodRequest->city,
+                requestUrgencyLevel: $bloodRequest->urgency_level,
+                requestIsEmergency: $bloodRequest->is_emergency,
             ),
-            ['urgency_level' => $bloodRequest->urgency_level]
+            ['urgency_level' => $bloodRequest->urgency_level, 'request_chapter_name' => $requestChapterName]
         )->take(10)->values();
 
         foreach ($topMatches as $index => $match) {

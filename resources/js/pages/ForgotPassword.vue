@@ -1,20 +1,15 @@
 <template>
-  <div class="forgot-shell min-h-dvh overflow-hidden bg-slate-100 text-white">
+  <div class="forgot-shell auth-shell overflow-hidden">
     <div class="pointer-events-none absolute inset-0">
       <div class="forgot-soft-glow"></div>
     </div>
 
-    <div class="relative mx-auto flex min-h-dvh w-full max-w-5xl items-start px-3 py-4 sm:px-6 sm:py-8 lg:items-center lg:px-8">
+    <div class="relative mx-auto flex min-h-screen w-full max-w-5xl items-start px-3 py-4 sm:px-6 sm:py-8 lg:items-center lg:px-8">
       <div class="grid w-full overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.10)] sm:rounded-[2rem] lg:grid-cols-[0.95fr_1.05fr]">
         <section class="hidden flex-col justify-center bg-[linear-gradient(180deg,_#991b1b_0%,_#b91c1c_52%,_#7f1d1d_100%)] px-6 py-8 sm:px-8 lg:flex lg:min-h-[640px] lg:px-10">
           <div class="space-y-6">
             <div class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-red-100">
-              <svg viewBox="0 0 64 64" aria-hidden="true" class="h-11 w-11">
-                <circle cx="32" cy="24" r="18" fill="#DC2626" />
-                <rect x="28" y="14" width="8" height="20" rx="2" fill="#FFFFFF" />
-                <rect x="22" y="20" width="20" height="8" rx="2" fill="#FFFFFF" />
-                <path d="M32 37C27.58 37 24 40.58 24 45C24 50.33 28.35 54 32 58C35.65 54 40 50.33 40 45C40 40.58 36.42 37 32 37Z" fill="#B91C1C" />
-              </svg>
+              <img src="/images/logo.png" alt="SmartBlood Logo" class="h-11 w-11 object-contain" />
             </div>
 
             <div class="space-y-3">
@@ -41,12 +36,7 @@
             <div class="space-y-6">
               <div class="flex items-center gap-3 rounded-2xl bg-red-50 px-4 py-4 lg:hidden">
                 <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-red-100">
-                  <svg viewBox="0 0 64 64" aria-hidden="true" class="h-8 w-8">
-                    <circle cx="32" cy="24" r="18" fill="#DC2626" />
-                    <rect x="28" y="14" width="8" height="20" rx="2" fill="#FFFFFF" />
-                    <rect x="22" y="20" width="20" height="8" rx="2" fill="#FFFFFF" />
-                    <path d="M32 37C27.58 37 24 40.58 24 45C24 50.33 28.35 54 32 58C35.65 54 40 50.33 40 45C40 40.58 36.42 37 32 37Z" fill="#B91C1C" />
-                  </svg>
+                  <img src="/images/logo.png" alt="SmartBlood Logo" class="h-8 w-8 object-contain" />
                 </span>
                 <div class="min-w-0">
                   <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-500">SmartBlood</p>

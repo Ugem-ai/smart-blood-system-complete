@@ -40,20 +40,22 @@ return [
         'endpoint' => env('FCM_ENDPOINT', 'https://fcm.googleapis.com/fcm/send'),
     ],
 
-    'twilio' => [
-        'sid' => env('TWILIO_SID'),
-        'token' => env('TWILIO_AUTH_TOKEN'),
-        'from' => env('TWILIO_FROM'),
+    'unisms' => [
+        'api_key' => env('UNISMS_API_KEY'),
+        'sender_id' => env('UNISMS_SENDER_ID'),
+        'endpoint' => env('UNISMS_ENDPOINT', 'https://unismsapi.com/v1/messages'),
     ],
 
     'notifications' => [
         'max_burst' => env('NOTIFICATION_MAX_BURST', 20),
         'push_batch_size' => env('NOTIFICATION_PUSH_BATCH_SIZE', 100),
         'push_batch_pacing_us' => env('NOTIFICATION_PUSH_BATCH_PACING_US', 100000),
-        'max_alerts_per_day' => env('DONOR_MAX_ALERTS_PER_DAY', 3),
-        'cooldown_hours' => env('DONOR_ALERT_COOLDOWN_HOURS', 12),
+        'max_alerts_per_day' => env('DONOR_MAX_ALERTS_PER_DAY', 2),
+        'cooldown_hours' => env('DONOR_ALERT_COOLDOWN_HOURS', 24),
         'sms_retry_attempts' => env('SMS_RETRY_ATTEMPTS', 3),
         'sms_retry_delay_ms' => env('SMS_RETRY_DELAY_MS', 800),
+        'sms_provider' => env('NOTIFICATION_SMS_PROVIDER', 'auto'),
+        'push_stale_threshold_minutes' => env('NOTIFICATION_PUSH_STALE_THRESHOLD_MINUTES', 30),
         'pacing_us' => env('NOTIFICATION_PACING_US', 5000),
         'emergency_default_expiration_hours' => env('EMERGENCY_MODE_DEFAULT_EXPIRATION_HOURS', 0),
         'emergency_escalation_delay_minutes' => env('EMERGENCY_ESCALATION_DELAY_MINUTES', 2),
@@ -61,6 +63,7 @@ return [
         'emergency_medium_urgency_max_delay_minutes' => env('EMERGENCY_MEDIUM_URGENCY_MAX_DELAY_MINUTES', 15),
         'emergency_low_urgency_max_delay_minutes' => env('EMERGENCY_LOW_URGENCY_MAX_DELAY_MINUTES', 30),
         'emergency_priority_boost_factor' => env('EMERGENCY_PRIORITY_BOOST_FACTOR', 0.15),
+        'pending_reservation_expiration_minutes' => env('MATCHING_PENDING_RESERVATION_EXPIRATION_MINUTES', 10),
         'work_hours_start' => env('DONOR_WORK_HOURS_START', 8),
         'work_hours_end' => env('DONOR_WORK_HOURS_END', 17),
         'prediction_min_samples' => env('DONOR_AVAILABILITY_PREDICTION_MIN_SAMPLES', 3),

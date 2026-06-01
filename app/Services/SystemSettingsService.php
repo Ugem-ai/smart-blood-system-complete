@@ -18,6 +18,14 @@ class SystemSettingsService
     public const DEFAULT_NOTIFICATION_RULE = 'critical-only';
 
     public const DEFAULT_PAST_MATCH_WEIGHTS = [
+        'compatibility' => 0.50,
+        'availability' => 0.10,
+        'travel_willingness' => 0.15,
+        'distance_efficiency' => 0.25,
+    ];
+
+    // Legacy-shaped defaults (priority, availability, distance, time) preserved for admin API compatibility
+    public const DEFAULT_LEGACY_PAST_MATCH_WEIGHTS = [
         'priority' => 0.25,
         'availability' => 0.20,
         'distance' => 0.25,
@@ -26,28 +34,28 @@ class SystemSettingsService
 
     private const URGENCY_PROFILE_MULTIPLIERS = [
         'low' => [
-            'priority' => 0.82,
+            'compatibility' => 0.90,
             'availability' => 1.14,
-            'distance' => 1.10,
-            'time' => 0.92,
+            'travel_willingness' => 1.05,
+            'distance_efficiency' => 1.10,
         ],
         'medium' => [
-            'priority' => 1.0,
+            'compatibility' => 1.0,
             'availability' => 1.0,
-            'distance' => 1.0,
-            'time' => 1.0,
+            'travel_willingness' => 1.0,
+            'distance_efficiency' => 1.0,
         ],
         'high' => [
-            'priority' => 1.12,
+            'compatibility' => 1.12,
             'availability' => 0.95,
-            'distance' => 0.95,
-            'time' => 1.18,
+            'travel_willingness' => 0.95,
+            'distance_efficiency' => 1.18,
         ],
         'critical' => [
-            'priority' => 1.20,
+            'compatibility' => 1.20,
             'availability' => 0.88,
-            'distance' => 0.90,
-            'time' => 1.35,
+            'travel_willingness' => 0.85,
+            'distance_efficiency' => 1.35,
         ],
     ];
 
@@ -92,11 +100,15 @@ class SystemSettingsService
     {
         $settings = $this->current();
 
+        // Prefer v2 (new) weights for the matching engine when available.
         if ($urgencyLevel === null) {
-            return $settings['past_match_weights'];
+            return $settings['past_match_weights_v2'] ?? $settings['past_match_weights'];
         }
 
-        return $settings['past_match_weight_profiles'][$this->normalizeUrgencyLevel($urgencyLevel)]
+        $profileKey = $this->normalizeUrgencyLevel($urgencyLevel);
+
+        return $settings['past_match_weight_profiles_v2'][$profileKey]
+            ?? $settings['past_match_weights_v2']
             ?? $settings['past_match_weights'];
     }
 
@@ -160,11 +172,16 @@ class SystemSettingsService
     {
         $baseWeights = self::DEFAULT_PAST_MATCH_WEIGHTS;
 
+        // For defaults, present legacy-shaped baseline weights and profiles
+        $legacyWeights = self::DEFAULT_LEGACY_PAST_MATCH_WEIGHTS;
+
+        $legacyProfiles = array_combine(self::URGENCY_LEVELS, array_fill(0, count(self::URGENCY_LEVELS), $legacyWeights));
+
         return [
             'urgency_threshold' => self::DEFAULT_URGENCY_THRESHOLD,
             'notification_rule' => self::DEFAULT_NOTIFICATION_RULE,
-            'past_match_weights' => $baseWeights,
-            'past_match_weight_profiles' => $this->deriveUrgencyProfiles($baseWeights),
+            'past_match_weights' => $legacyWeights,
+            'past_match_weight_profiles' => $legacyProfiles,
             'control_center' => $this->defaultControlCenter($baseWeights),
             'updated_at' => null,
             'updated_by' => null,
@@ -177,11 +194,11 @@ class SystemSettingsService
         $weights = $this->pastMatchWeights($urgencyLevel);
 
         return sprintf(
-            '(%.2f × priority) + (%.2f × availability) + (%.2f × distance) + (%.2f × time)',
-            $weights['priority'],
-            $weights['availability'],
-            $weights['distance'],
-            $weights['time']
+            '(%.2f × compatibility) + (%.2f × availability) + (%.2f × travel_willingness) + (%.2f × distance_efficiency)',
+            $weights['compatibility'] ?? 0.0,
+            $weights['availability'] ?? 0.0,
+            $weights['travel_willingness'] ?? 0.0,
+            $weights['distance_efficiency'] ?? 0.0
         );
     }
 
@@ -193,27 +210,81 @@ class SystemSettingsService
             $defaults['control_center']
         );
 
-        $baseWeights = $this->normalizeWeights(
-            $attributes['past_match_weights']
-                ?? $attributes['weights']
-                ?? ($controlCenter['matching']['mode_weights']['normal'] ?? $defaults['past_match_weights'])
-        );
+        $inputWeights = $attributes['past_match_weights'] ?? $attributes['weights'] ?? null;
 
-        $profiles = $this->normalizeWeightProfiles(
-            $attributes['past_match_weight_profiles'] ?? $attributes['weight_profiles'] ?? null,
-            $this->mapModeWeightsToProfiles($controlCenter['matching']['mode_weights'], $baseWeights)
-        );
+        // Detect legacy payload shape (priority, availability, distance, time)
+        $isLegacyPayload = is_array($inputWeights) && array_key_exists('priority', $inputWeights);
+
+        if ($isLegacyPayload) {
+            // Preserve legacy weights in the API response for backward compatibility
+            $legacyWeights = $this->normalizeLegacyWeights($inputWeights);
+            // Convert legacy to v2 shape for internal engine use and normalize
+            $converted = $this->convertLegacyToNew($legacyWeights);
+            $baseWeights = $this->normalizeWeights($converted);
+        } else {
+            $baseWeights = $this->normalizeWeights(
+                $inputWeights
+                    ?? ($controlCenter['matching']['mode_weights']['normal'] ?? $defaults['past_match_weights'])
+            );
+            if ($inputWeights === null) {
+                $legacyWeights = self::DEFAULT_LEGACY_PAST_MATCH_WEIGHTS;
+            } else {
+                $legacyWeights = $this->convertNewToLegacy($baseWeights);
+            }
+        }
+
+        $inputProfiles = $attributes['past_match_weight_profiles'] ?? $attributes['weight_profiles'] ?? null;
+
+        // If input profiles are legacy-shaped (priority, availability, distance, time), convert each to v2 shape before normalization
+        if (is_array($inputProfiles)) {
+            $first = reset($inputProfiles);
+            $isLegacyProfiles = is_array($first) && array_key_exists('priority', $first);
+
+            if ($isLegacyProfiles) {
+                $convertedProfiles = collect($inputProfiles)
+                    ->mapWithKeys(fn($p, $k) => [$k => $this->convertLegacyToNew($this->normalizeLegacyWeights((array) $p))])
+                    ->all();
+                $profiles = $this->normalizeWeightProfiles($convertedProfiles, $this->mapModeWeightsToProfiles($controlCenter['matching']['mode_weights'], $baseWeights));
+            } else {
+                $profiles = $this->normalizeWeightProfiles($inputProfiles, $this->mapModeWeightsToProfiles($controlCenter['matching']['mode_weights'], $baseWeights));
+            }
+        } else {
+            $profiles = $this->normalizeWeightProfiles(null, $this->mapModeWeightsToProfiles($controlCenter['matching']['mode_weights'], $baseWeights));
+        }
         $baseWeights = $profiles['medium'];
 
         $urgencyThreshold = max(1, min(100, (int) ($attributes['urgency_threshold'] ?? $controlCenter['emergency']['urgency_threshold'] ?? $defaults['urgency_threshold'])));
         $notificationRule = (string) ($attributes['notification_rule'] ?? $controlCenter['notifications']['rule'] ?? $defaults['notification_rule']);
         $controlCenter = $this->synchronizeControlCenter($controlCenter, $profiles, $urgencyThreshold, $notificationRule);
 
+        // Build final legacy-shaped profiles for API return.
+        // If the input provided legacy-shaped profiles, preserve them (normalized); otherwise derive from v2 profiles.
+        if (is_array($inputProfiles)) {
+            $first = reset($inputProfiles);
+            $isLegacyProfiles = is_array($first) && array_key_exists('priority', $first);
+        } else {
+            $isLegacyProfiles = false;
+        }
+
+        if ($isLegacyProfiles) {
+            $finalLegacyProfiles = collect($inputProfiles)
+                ->mapWithKeys(fn($p, $k) => [$k => $this->normalizeLegacyProfileValues($this->normalizeLegacyWeights((array) $p))])
+                ->all();
+        } else {
+            $finalLegacyProfiles = collect($profiles)
+                ->mapWithKeys(fn($p, $k) => [$k => $this->normalizeLegacyProfileValues($this->convertNewToLegacy($p))])
+                ->all();
+        }
+
         return [
             'urgency_threshold' => $urgencyThreshold,
             'notification_rule' => $notificationRule,
-            'past_match_weights' => $baseWeights,
-            'past_match_weight_profiles' => $profiles,
+            // Legacy-shaped weights for API compatibility
+            'past_match_weights' => $legacyWeights,
+            // New v2-shaped weights used by matching engine
+            'past_match_weights_v2' => $baseWeights,
+            'past_match_weight_profiles' => $finalLegacyProfiles,
+            'past_match_weight_profiles_v2' => $profiles,
             'control_center' => $controlCenter,
             'updated_at' => $attributes['updated_at'] ?? $defaults['updated_at'],
             'updated_by' => $attributes['updated_by'] ?? $defaults['updated_by'],
@@ -480,12 +551,55 @@ class SystemSettingsService
     {
         return collect(self::URGENCY_PROFILE_MULTIPLIERS)
             ->map(fn (array $multipliers) => $this->normalizeWeights([
-                'priority' => $baseWeights['priority'] * $multipliers['priority'],
-                'availability' => $baseWeights['availability'] * $multipliers['availability'],
-                'distance' => $baseWeights['distance'] * $multipliers['distance'],
-                'time' => $baseWeights['time'] * $multipliers['time'],
+                'compatibility' => $baseWeights['compatibility'] * ($multipliers['compatibility'] ?? 1.0),
+                'availability' => $baseWeights['availability'] * ($multipliers['availability'] ?? 1.0),
+                'travel_willingness' => $baseWeights['travel_willingness'] * ($multipliers['travel_willingness'] ?? 1.0),
+                'distance_efficiency' => $baseWeights['distance_efficiency'] * ($multipliers['distance_efficiency'] ?? 1.0),
             ]))
             ->all();
+    }
+
+    private function normalizeLegacyWeights(array $weights): array
+    {
+        return [
+            'priority' => isset($weights['priority']) ? (float) $weights['priority'] : 0.0,
+            'availability' => isset($weights['availability']) ? (float) $weights['availability'] : 0.0,
+            'distance' => isset($weights['distance']) ? (float) $weights['distance'] : 0.0,
+            'time' => isset($weights['time']) ? (float) $weights['time'] : 0.0,
+        ];
+    }
+
+    private function convertLegacyToNew(array $legacy): array
+    {
+        // Map legacy grouped weights to new weight keys heuristically.
+        return [
+            'compatibility' => $legacy['priority'] ?? 0.25,
+            'availability' => $legacy['availability'] ?? 0.20,
+            'travel_willingness' => ($legacy['distance'] ?? 0.25) * 0.6 + 0.05,
+            'distance_efficiency' => $legacy['time'] ?? 0.30,
+        ];
+    }
+
+    private function convertNewToLegacy(array $new): array
+    {
+        return [
+            'priority' => $new['compatibility'] ?? 0.0,
+            'availability' => $new['availability'] ?? 0.0,
+            'distance' => $new['distance_efficiency'] ?? 0.0,
+            'time' => $new['distance_efficiency'] ?? 0.0,
+        ];
+    }
+
+    private function normalizeLegacyProfileValues(array $legacy): array
+    {
+        $sanitized = array_map(fn($v) => max(0.0, (float) $v), $legacy);
+        $sum = array_sum($sanitized);
+
+        if ($sum <= 0) {
+            return self::DEFAULT_LEGACY_PAST_MATCH_WEIGHTS;
+        }
+
+        return array_map(fn($v) => round($v / $sum, 2), $sanitized);
     }
 
     private function normalizeWeights(array $weights): array
@@ -554,6 +668,22 @@ class SystemSettingsService
     private function storedProfilesAvailable(): bool
     {
         return $this->tableAvailable() && Schema::hasColumn('system_settings', 'past_match_weight_profiles');
+    }
+
+    // Public helper to convert v2-shaped profiles into legacy-shaped normalized profiles
+    public function convertProfilesToLegacy(array $profiles): array
+    {
+        return collect($profiles)
+            ->mapWithKeys(fn($p, $k) => [$k => $this->normalizeLegacyProfileValues($this->convertNewToLegacy((array) $p))])
+            ->all();
+    }
+
+    // Public helper to normalize legacy-shaped profiles directly
+    public function normalizeLegacyProfiles(array $profiles): array
+    {
+        return collect($profiles)
+            ->mapWithKeys(fn($p, $k) => [$k => $this->normalizeLegacyProfileValues($this->normalizeLegacyWeights((array) $p))])
+            ->all();
     }
 
     private function controlCenterAvailable(): bool

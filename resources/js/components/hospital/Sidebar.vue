@@ -6,15 +6,8 @@
   ]">
     <div class="border-b border-white/10" :class="effectiveCollapsed ? 'px-2 py-4' : 'px-5 py-5'">
       <div class="flex" :class="effectiveCollapsed ? 'flex-col items-center gap-3' : 'items-center gap-3'">
-        <a href="#" class="flex min-w-0 items-center gap-2.5" :class="effectiveCollapsed ? 'justify-center' : 'flex-1'">
-          <span class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-red-100">
-            <svg viewBox="0 0 64 64" aria-hidden="true" class="h-6 w-6">
-              <circle cx="32" cy="24" r="18" fill="#DC2626" />
-              <rect x="28" y="14" width="8" height="20" rx="2" fill="#FFFFFF" />
-              <rect x="22" y="20" width="20" height="8" rx="2" fill="#FFFFFF" />
-              <path d="M32 37C27.58 37 24 40.58 24 45C24 50.33 28.35 54 32 58C35.65 54 40 50.33 40 45C40 40.58 36.42 37 32 37Z" fill="#B91C1C" />
-            </svg>
-          </span>
+        <a href="#" class="flex min-w-0 items-center justify-center gap-2.5" :class="effectiveCollapsed ? 'justify-center' : 'flex-1'">
+          <img src="/images/logo.png" alt="SmartBlood Logo" class="h-10 w-10 self-center flex-shrink-0 rounded-xl bg-white shadow-sm ring-1 ring-red-100 object-center" />
           <div v-show="!effectiveCollapsed" class="min-w-0">
             <div class="truncate text-lg font-bold text-white">SmartBlood</div>
           </div>

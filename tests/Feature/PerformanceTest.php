@@ -146,16 +146,16 @@ class PerformanceTest extends TestCase
 
         Http::fake([
             'https://fcm.googleapis.com/*' => Http::response(['success' => true], 200),
-            'https://api.twilio.com/*' => Http::response(['sid' => 'SM123'], 201),
+            'https://unismsapi.com/*' => Http::response(['sid' => 'SM123'], 201),
             '*' => Http::response(['ok' => true], 200),
         ]);
 
         config([
             'services.fcm.server_key' => 'perf-fcm-key',
             'services.fcm.endpoint' => 'https://fcm.googleapis.com/fcm/send',
-            'services.twilio.sid' => 'perf-sid',
-            'services.twilio.token' => 'perf-token',
-            'services.twilio.from' => '+15555550123',
+            'services.unisms.api_key' => 'test-api-key',
+            'services.unisms.sender_id' => 'PRCSMS',
+
             'services.notifications.max_burst' => 20,
         ]);
 
