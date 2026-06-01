@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Drop old table if it exists to avoid conflicts
+        Schema::dropIfExists('blood_inventory');
+        
         Schema::create('blood_inventory', function (Blueprint $table) {
             $table->id();
             $table->foreignId('chapter_id')->nullable()->constrained('chapters')->nullOnDelete();
