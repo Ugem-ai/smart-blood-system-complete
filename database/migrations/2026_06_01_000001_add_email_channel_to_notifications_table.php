@@ -1,28 +1,29 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('notifications', function (Blueprint $table) {
-            $table->enum('channel', ['push', 'sms', 'email'])->default('push')->change();
-        });
+        // Drop existing constraint if any
+        DB::statement('ALTER TABLE "notifications" DROP CONSTRAINT IF EXISTS notifications_channel_check');
+
+        // Alter column type and default separately
+        DB::statement('ALTER TABLE "notifications" ALTER COLUMN "channel" TYPE varchar(255)');
+        DB::statement('ALTER TABLE "notifications" ALTER COLUMN "channel" SET NOT NULL');
+        DB::statement('ALTER TABLE "notifications" ALTER COLUMN "channel" SET DEFAULT \'push\'');
+
+        // Add CHECK constraint separately (PostgreSQL requires this)
+        DB::statement('ALTER TABLE "notifications" ADD CONSTRAINT notifications_channel_check CHECK ("channel" IN (\'push\', \'sms\', \'email\'))');
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('notifications', function (Blueprint $table) {
-            $table->enum('channel', ['push', 'sms'])->default('push')->change();
-        });
+        DB::statement('ALTER TABLE "notifications" DROP CONSTRAINT IF EXISTS notifications_channel_check');
+        DB::statement('ALTER TABLE "notifications" ALTER COLUMN "channel" TYPE varchar(255)');
+        DB::statement('ALTER TABLE "notifications" ALTER COLUMN "channel" SET DEFAULT \'push\'');
+        DB::statement('ALTER TABLE "notifications" ADD CONSTRAINT notifications_channel_check CHECK ("channel" IN (\'push\', \'sms\'))');
     }
 };
