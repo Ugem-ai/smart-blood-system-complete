@@ -178,6 +178,12 @@ const presetAccounts = [
     password: 'password',
   },
   {
+    role: 'Hospital',
+    label: 'Hospital Demo',
+    email: 'hospital@example.com',
+    password: 'password',
+  },
+  {
     role: 'Donor',
     label: 'Donor Account',
     email: 'donor@example.com',
