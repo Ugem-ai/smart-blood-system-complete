@@ -19,7 +19,7 @@ return new class extends Migration
             DB::statement("
                 ALTER TABLE blood_requests 
                 ADD CONSTRAINT blood_requests_status_check 
-                CHECK (status IN ('open','fulfilled','cancelled','matching','completed','expired'))
+                CHECK (status IN ('open','pending','matching','matched','confirmed','completed','fulfilled','cancelled','expired'))
             ");
 
         } elseif ($driver === 'sqlite') {
@@ -53,7 +53,7 @@ return new class extends Migration
             DB::statement("
                 ALTER TABLE blood_requests 
                 ADD CONSTRAINT blood_requests_status_check 
-                CHECK (status IN ('open','fulfilled','cancelled','matching','completed','expired'))
+                CHECK (status IN ('open','pending','matching','matched','confirmed','completed','fulfilled','cancelled','expired'))
             ");
         }
     }
