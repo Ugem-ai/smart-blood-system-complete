@@ -90,8 +90,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
 COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 
+RUN docker-php-ext-install pdo_sqlite
+
 RUN docker-php-ext-enable \
     pdo_pgsql \
+    pdo_sqlite \
     mbstring \
     zip \
     gd \
@@ -100,6 +103,8 @@ RUN docker-php-ext-enable \
 
 RUN php -m | grep -i pdo_pgsql || \
     (echo "ERROR: pdo_pgsql extension not loaded!" && exit 1)
+RUN php -m | grep -i pdo_sqlite || \
+    (echo "ERROR: pdo_sqlite extension not loaded!" && exit 1)
 
 RUN { \
     echo "max_execution_time = 300"; \
