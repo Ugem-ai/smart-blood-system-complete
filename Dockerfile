@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
+    libsqlite3-dev \
     git \
     curl \
     unzip \
@@ -34,6 +35,7 @@ RUN docker-php-ext-configure gd \
 
 RUN docker-php-ext-install -j$(nproc) \
     pdo_pgsql \
+    pdo_sqlite \
     mbstring \
     zip \
     gd \
@@ -85,12 +87,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig5 \
     libxml2 \
     libpq5 \
+    libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
 COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
-
-RUN docker-php-ext-install pdo_sqlite
 
 RUN docker-php-ext-enable \
     pdo_pgsql \
