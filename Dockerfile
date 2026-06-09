@@ -129,7 +129,7 @@ USER laravel
 
 EXPOSE 10000
 
-CMD sh -c "php artisan config:clear && \
+CMD sh -c "mkdir -p /app/storage && touch /app/storage/database.sqlite && php artisan config:clear && \
     php artisan migrate --force && \
     php artisan db:seed --force && \
     php artisan serve --host=0.0.0.0 --port=10000"
