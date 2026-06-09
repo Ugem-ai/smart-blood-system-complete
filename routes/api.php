@@ -111,9 +111,13 @@ Route::middleware(['auth:sanctum', 'role:hospital', 'audit', 'monitor', 'throttl
 
     // Backward-compatible aliases
     Route::post('/hospital/request', [HospitalRequestController::class, 'store']);
+    Route::post('/hospital/requests', [HospitalRequestController::class, 'store']);
     Route::get('/hospital/request/list', [HospitalRequestController::class, 'list']);
+    Route::get('/hospital/requests', [HospitalRequestController::class, 'list']);
     Route::get('/hospital/request/{bloodRequest}', [HospitalRequestController::class, 'show']);
+    Route::get('/hospital/requests/{bloodRequest}', [HospitalRequestController::class, 'show']);
     Route::get('/hospital/request/{bloodRequest}/matched-donors', [HospitalRequestController::class, 'matchedDonors']);
+    Route::get('/hospital/requests/{bloodRequest}/matched-donors', [HospitalRequestController::class, 'matchedDonors']);
 
     Route::post('/hospital/confirm-donation', [HospitalRequestController::class, 'confirmDonation']);
 });
