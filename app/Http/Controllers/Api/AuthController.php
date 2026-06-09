@@ -105,7 +105,6 @@ class AuthController extends Controller
                 'contact_person' => $validated['name'],
                 'contact_number' => $validated['contact_number'],
                 'email' => $validated['email'],
-                'password' => $validated['password'],
                 'status' => 'pending',
             ]);
         }

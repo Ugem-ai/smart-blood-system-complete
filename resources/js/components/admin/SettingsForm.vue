@@ -71,7 +71,7 @@
                   </div>
                   <p class="mt-1 text-xs text-gray-500">Keeps automated donor ranking available without reloading the dashboard.</p>
                 </div>
-                <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.matching.engine_enabled ? 'bg-red-600' : 'bg-gray-300'" @click="form.matching.engine_enabled = !form.matching.engine_enabled">
+                <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.matching.engine_enabled ? 'bg-red-600' : 'bg-gray-300'" @click="form.matching.engine_enabled = !form.matching.engine_enabled">
                   <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.matching.engine_enabled ? 'translate-x-6' : 'translate-x-1'" />
                 </button>
               </label>
@@ -114,7 +114,7 @@
                     </div>
                     <p class="mt-1 text-xs text-gray-500">Lock matching to direct transfusion compatibility requirements.</p>
                   </div>
-                  <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.matching.strict_blood_type ? 'bg-red-600' : 'bg-gray-300'" @click="form.matching.strict_blood_type = !form.matching.strict_blood_type">
+                  <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.matching.strict_blood_type ? 'bg-red-600' : 'bg-gray-300'" @click="form.matching.strict_blood_type = !form.matching.strict_blood_type">
                     <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.matching.strict_blood_type ? 'translate-x-6' : 'translate-x-1'" />
                   </button>
                 </div>
@@ -233,13 +233,15 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <!-- FIX 1: sm:grid-cols-3 → md:grid-cols-3 (Emergency Actions toggle grid) -->
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
               <label v-for="action in emergencyActionFields" :key="action.key" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <div>
                   <div class="text-sm font-semibold text-gray-900">{{ action.label }}</div>
                   <div class="mt-1 text-xs text-gray-500">{{ action.help }}</div>
                 </div>
-                <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.emergency.actions[action.key] ? 'bg-red-600' : 'bg-gray-300'" @click="form.emergency.actions[action.key] = !form.emergency.actions[action.key]">
+                <!-- FIX 2: shrink-0 added to toggle button -->
+                <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.emergency.actions[action.key] ? 'bg-red-600' : 'bg-gray-300'" @click="form.emergency.actions[action.key] = !form.emergency.actions[action.key]">
                   <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.emergency.actions[action.key] ? 'translate-x-6' : 'translate-x-1'" />
                 </button>
               </label>
@@ -266,13 +268,15 @@
           </div>
 
           <div class="mt-4 space-y-4">
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <!-- FIX 1: sm:grid-cols-3 → md:grid-cols-3 (Notification Channels toggle grid) -->
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
               <label v-for="channel in notificationChannels" :key="channel.key" class="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
                 <div>
                   <div class="text-sm font-semibold text-gray-900">{{ channel.label }}</div>
                   <div class="mt-1 text-xs text-gray-500">{{ channel.help }}</div>
                 </div>
-                <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.notifications.channels[channel.key] ? 'bg-red-600' : 'bg-gray-300'" @click="form.notifications.channels[channel.key] = !form.notifications.channels[channel.key]">
+                <!-- FIX 2: shrink-0 added to toggle button -->
+                <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.notifications.channels[channel.key] ? 'bg-red-600' : 'bg-gray-300'" @click="form.notifications.channels[channel.key] = !form.notifications.channels[channel.key]">
                   <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.notifications.channels[channel.key] ? 'translate-x-6' : 'translate-x-1'" />
                 </button>
               </label>
@@ -314,7 +318,8 @@
                   <div class="text-sm font-semibold text-gray-900">Quiet Hours</div>
                   <div class="mt-1 text-xs text-gray-500">Delay non-critical donor outreach inside an approved time window.</div>
                 </div>
-                <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.notifications.quiet_hours.enabled ? 'bg-red-600' : 'bg-gray-300'" @click="form.notifications.quiet_hours.enabled = !form.notifications.quiet_hours.enabled">
+                <!-- FIX 2: shrink-0 added to toggle button -->
+                <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.notifications.quiet_hours.enabled ? 'bg-red-600' : 'bg-gray-300'" @click="form.notifications.quiet_hours.enabled = !form.notifications.quiet_hours.enabled">
                   <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.notifications.quiet_hours.enabled ? 'translate-x-6' : 'translate-x-1'" />
                 </button>
               </div>
@@ -387,7 +392,8 @@
                 <div class="text-sm font-semibold text-gray-900">Enable Activity Logging</div>
                 <div class="mt-1 text-xs text-gray-500">Captures standard administrative and operational actions.</div>
               </div>
-              <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.audit.activity_logging ? 'bg-red-600' : 'bg-gray-300'" @click="form.audit.activity_logging = !form.audit.activity_logging">
+              <!-- FIX 2: shrink-0 added to toggle button -->
+              <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.audit.activity_logging ? 'bg-red-600' : 'bg-gray-300'" @click="form.audit.activity_logging = !form.audit.activity_logging">
                 <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.audit.activity_logging ? 'translate-x-6' : 'translate-x-1'" />
               </button>
             </label>
@@ -397,7 +403,8 @@
                 <div class="text-sm font-semibold text-gray-900">Enable Sensitive Action Logging</div>
                 <div class="mt-1 text-xs text-gray-500">Always record security-critical state changes and override actions.</div>
               </div>
-              <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.audit.sensitive_action_logging ? 'bg-red-600' : 'bg-gray-300'" @click="form.audit.sensitive_action_logging = !form.audit.sensitive_action_logging">
+              <!-- FIX 2: shrink-0 added to toggle button -->
+              <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.audit.sensitive_action_logging ? 'bg-red-600' : 'bg-gray-300'" @click="form.audit.sensitive_action_logging = !form.audit.sensitive_action_logging">
                 <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.audit.sensitive_action_logging ? 'translate-x-6' : 'translate-x-1'" />
               </button>
             </label>
@@ -520,7 +527,8 @@
                 <div class="text-sm font-semibold text-gray-900">Duplicate Request Prevention</div>
                 <div class="mt-1 text-xs text-gray-500">Stops overlapping requests for the same blood need and facility context.</div>
               </div>
-              <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.blood_request_rules.duplicate_prevention ? 'bg-red-600' : 'bg-gray-300'" @click="form.blood_request_rules.duplicate_prevention = !form.blood_request_rules.duplicate_prevention">
+              <!-- FIX 2: shrink-0 added to toggle button -->
+              <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.blood_request_rules.duplicate_prevention ? 'bg-red-600' : 'bg-gray-300'" @click="form.blood_request_rules.duplicate_prevention = !form.blood_request_rules.duplicate_prevention">
                 <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.blood_request_rules.duplicate_prevention ? 'translate-x-6' : 'translate-x-1'" />
               </button>
             </label>
@@ -568,7 +576,8 @@
                   <div class="text-sm font-semibold text-gray-900">Traffic-Aware Routing</div>
                   <div class="mt-1 text-xs text-gray-500">Adjust route preferences when congestion increases travel time.</div>
                 </div>
-                <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.geolocation.traffic_aware_routing ? 'bg-red-600' : 'bg-gray-300'" @click="form.geolocation.traffic_aware_routing = !form.geolocation.traffic_aware_routing">
+                <!-- FIX 2: shrink-0 added to toggle button -->
+                <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.geolocation.traffic_aware_routing ? 'bg-red-600' : 'bg-gray-300'" @click="form.geolocation.traffic_aware_routing = !form.geolocation.traffic_aware_routing">
                   <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.geolocation.traffic_aware_routing ? 'translate-x-6' : 'translate-x-1'" />
                 </button>
               </label>
@@ -599,7 +608,8 @@
                   <div class="text-sm font-semibold text-gray-900">System Safe Mode</div>
                   <div class="mt-1 text-xs text-gray-500">Reduce system behavior to the most conservative, non-disruptive control path.</div>
                 </div>
-                <button type="button" class="relative inline-flex h-7 w-12 items-center rounded-full transition" :class="form.fail_safe.safe_mode ? 'bg-red-600' : 'bg-gray-300'" @click="form.fail_safe.safe_mode = !form.fail_safe.safe_mode">
+                <!-- FIX 2: shrink-0 added to toggle button -->
+                <button type="button" class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition" :class="form.fail_safe.safe_mode ? 'bg-red-600' : 'bg-gray-300'" @click="form.fail_safe.safe_mode = !form.fail_safe.safe_mode">
                   <span class="inline-block h-5 w-5 transform rounded-full bg-white transition" :class="form.fail_safe.safe_mode ? 'translate-x-6' : 'translate-x-1'" />
                 </button>
               </label>

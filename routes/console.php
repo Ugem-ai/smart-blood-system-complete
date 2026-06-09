@@ -199,7 +199,6 @@ Artisan::command('system:prepare-load-test {--hospitals=50} {--donors=10000} {--
                 'contact_person' => 'Dr Load '.$i,
                 'contact_number' => '0917'.str_pad((string) $i, 7, '0', STR_PAD_LEFT),
                 'email' => $email,
-                'password' => $password,
                 'status' => 'approved',
             ]
         );

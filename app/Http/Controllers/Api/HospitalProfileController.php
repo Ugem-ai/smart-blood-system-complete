@@ -77,7 +77,6 @@ class HospitalProfileController extends Controller
             'contact_person' => $validated['contact_person'],
             'contact_number' => $validated['contact_number'],
             'email' => $validated['email'],
-            'password' => $validated['password'],
             'status' => 'pending',
         ]);
 

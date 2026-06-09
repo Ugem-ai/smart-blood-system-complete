@@ -21,7 +21,6 @@ class Hospital extends Model
         'contact_person',
         'contact_number',
         'email',
-        'password',
         'status',
     ];
 
@@ -34,7 +33,6 @@ class Hospital extends Model
             'contact_number' => 'encrypted',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
-            'password' => 'hashed',
         ];
     }
 
