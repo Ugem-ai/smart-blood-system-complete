@@ -116,6 +116,7 @@ Route::middleware(['auth:sanctum', 'role:hospital', 'audit', 'monitor', 'throttl
     Route::get('/hospital/requests', [HospitalRequestController::class, 'list']);
     Route::get('/hospital/request/{bloodRequest}', [HospitalRequestController::class, 'show']);
     Route::get('/hospital/requests/{bloodRequest}', [HospitalRequestController::class, 'show']);
+    Route::match(['put', 'patch'], '/hospital/requests/{bloodRequest}', [HospitalRequestController::class, 'update']);
     Route::get('/hospital/request/{bloodRequest}/matched-donors', [HospitalRequestController::class, 'matchedDonors']);
     Route::get('/hospital/requests/{bloodRequest}/matched-donors', [HospitalRequestController::class, 'matchedDonors']);
 
