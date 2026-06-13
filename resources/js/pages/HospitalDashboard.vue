@@ -64,18 +64,18 @@ const mobileSidebarOpen = ref(false);
 const hospitalName = ref('Hospital');
 
 const modules = [
-  { id: 'dashboard', label: 'Dashboard', icon: '⌘', section: 'Main Operations' },
-  { id: 'create-request', label: 'Create Blood Request', icon: '✚', section: 'Main Operations' },
+  { id: 'dashboard', label: 'Dashboard', icon: '📊', section: 'Main Operations' },
+  { id: 'create-request', label: 'Create Blood Request', icon: '➕', section: 'Main Operations' },
   { id: 'active-requests', label: 'Active Requests', icon: '🩸', section: 'Main Operations' },
-  { id: 'matched-donors', label: 'Matched Donors', icon: '◎', section: 'Main Operations' },
-  { id: 'response-tracking', label: 'Response Tracking', icon: '◔', section: 'Main Operations' },
-  { id: 'emergency-escalation', label: 'Emergency Escalation', icon: '⚠', section: 'Main Operations' },
-  { id: 'notifications', label: 'Notifications', icon: '◉', section: 'Communication' },
-  { id: 'broadcast-requests', label: 'Broadcast Requests', icon: '↗', section: 'Communication' },
-  { id: 'analytics', label: 'Analytics', icon: '▣', section: 'Analytics & Monitoring' },
-  { id: 'past-match-insights', label: 'PAST-Match Insights', icon: '◌', section: 'Analytics & Monitoring' },
-  { id: 'audit-logs', label: 'Audit Logs', icon: '☰', section: 'Compliance & System' },
-  { id: 'settings', label: 'Settings', icon: '⚙', section: 'Compliance & System' },
+  { id: 'matched-donors', label: 'Matched Donors', icon: '🎯', section: 'Main Operations' },
+  { id: 'response-tracking', label: 'Response Tracking', icon: '⏳', section: 'Main Operations' },
+  { id: 'emergency-escalation', label: 'Emergency Escalation', icon: '⚠️', section: 'Main Operations' },
+  { id: 'notifications', label: 'Notifications', icon: '🔔', section: 'Communication' },
+  { id: 'broadcast-requests', label: 'Broadcast Requests', icon: '📢', section: 'Communication' },
+  { id: 'analytics', label: 'Analytics', icon: '📉', section: 'Analytics & Monitoring' },
+  { id: 'past-match-insights', label: 'PAST-Match Insights', icon: '💡', section: 'Analytics & Monitoring' },
+  { id: 'audit-logs', label: 'Audit Logs', icon: '📋', section: 'Compliance & System' },
+  { id: 'settings', label: 'Settings', icon: '⚙️', section: 'Compliance & System' },
 ];
 
 const moduleComponentMap = {
