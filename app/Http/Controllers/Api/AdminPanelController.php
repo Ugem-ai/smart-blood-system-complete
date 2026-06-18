@@ -2077,8 +2077,6 @@ class AdminPanelController extends Controller
             distanceLimitKm: (int) round((float) ($bloodRequest->distance_limit_km ?? DonorFilterService::DEFAULT_DISTANCE_LIMIT_KM)),
             requestCity: $bloodRequest->city,
             excludingRequestId: $bloodRequest->id,
-            requestUrgencyLevel: $bloodRequest->urgency_level,
-            requestIsEmergency: $bloodRequest->is_emergency,
         );
 
         $rankedCandidates = $pastMatch->rankDonors($filteredDonors, [
@@ -2762,6 +2760,11 @@ class AdminPanelController extends Controller
 
     private function buildNotificationEscalationTriggers(BloodRequest $bloodRequest, $alerts, $activityLogs): array
     {
+        // Defensive: ensure inputs are Collections to avoid Eloquent Collection
+        // merge behavior that may call model methods (e.g. getKey()) on arrays.
+        $alerts = collect($alerts);
+        $activityLogs = collect($activityLogs);
+
         $levelTriggers = $alerts
             ->where('escalation_level', '>', 1)
             ->groupBy('escalation_level')
@@ -2782,7 +2785,8 @@ class AdminPanelController extends Controller
                     'time_triggered' => $group->sortBy('sent_at')->first()?->sent_at?->toISOString(),
                 ];
             })
-            ->values();
+            ->values()
+            ->all();
 
         $activityTriggers = $activityLogs
             ->filter(fn (ActivityLog $log) => in_array($log->action, [
@@ -2803,10 +2807,15 @@ class AdminPanelController extends Controller
                     'trigger_condition' => (string) ($details['reason'] ?? $details['trigger'] ?? 'Operational escalation event recorded.'),
                     'time_triggered' => $log->created_at?->toISOString(),
                 ];
-            });
+            })
+            ->values()
+            ->all();
 
-        return $levelTriggers
-            ->merge($activityTriggers)
+        // Use array_merge to avoid Eloquent Collection merge issues with mixed types.
+        // Both arrays are now guaranteed to be plain PHP arrays with no model objects.
+        $merged = array_merge($levelTriggers, $activityTriggers);
+
+        return collect($merged)
             ->sortByDesc('time_triggered')
             ->values()
             ->all();
