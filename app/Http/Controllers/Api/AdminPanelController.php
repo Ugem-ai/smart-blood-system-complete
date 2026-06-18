@@ -2946,10 +2946,27 @@ class AdminPanelController extends Controller
 
     private function notificationFailureReason(NotificationDelivery $delivery): ?string
     {
-        return data_get($delivery->response, 'reason')
-            ?: data_get($delivery->response, 'exception')
-            ?: data_get($delivery->response, 'response.message')
-            ?: data_get($delivery->response, 'response.error.message');
+        $reason = data_get($delivery->response, 'reason');
+        if (is_string($reason)) {
+            return $reason;
+        }
+
+        $exception = data_get($delivery->response, 'exception');
+        if (is_string($exception)) {
+            return $exception;
+        }
+
+        $message = data_get($delivery->response, 'response.message');
+        if (is_string($message)) {
+            return $message;
+        }
+
+        $errorMessage = data_get($delivery->response, 'response.error.message');
+        if (is_string($errorMessage)) {
+            return $errorMessage;
+        }
+
+        return null;
     }
 
     private function notificationResponseTimeSeconds($sentAt, $respondedAt): ?int
