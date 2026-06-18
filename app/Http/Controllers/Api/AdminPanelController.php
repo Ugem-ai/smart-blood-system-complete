@@ -1896,6 +1896,20 @@ class AdminPanelController extends Controller
         return $this->pastMatchRequestOptions($request);
     }
 
+    public function recentNotificationDeliveries(Request $request): JsonResponse
+    {
+        $limit = max(1, min(20, (int) $request->integer('limit', 5)));
+
+        $rows = NotificationDelivery::query()
+            ->latest('created_at')
+            ->limit($limit)
+            ->get(['channel', 'status', 'response', 'sent_at']);
+
+        return response()->json([
+            'data' => $rows,
+        ]);
+    }
+
     public function notificationDashboard(BloodRequest $bloodRequest): JsonResponse
     {
         $bloodRequest->loadMissing(['hospital', 'donorResponses.donor.user']);

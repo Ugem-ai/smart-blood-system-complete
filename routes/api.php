@@ -150,6 +150,7 @@ Route::middleware(['auth:sanctum', 'role:admin', 'audit', 'monitor', 'throttle:6
     Route::patch('/admin/hospital-invites/{hospitalInviteCode}/revoke', [AdminPanelController::class, 'revokeHospitalInviteCode']);
     Route::get('/admin/requests', [AdminPanelController::class, 'bloodRequests']);
     Route::get('/admin/notifications/requests', [AdminPanelController::class, 'notificationRequestOptions']);
+    Route::get('/admin/notifications/recent-deliveries', [AdminPanelController::class, 'recentNotificationDeliveries']);
     Route::get('/admin/notifications/{bloodRequest}', [AdminPanelController::class, 'notificationDashboard']);
     Route::post('/admin/notifications/{bloodRequest}/control', [AdminPanelController::class, 'notificationControl']);
     Route::get('/admin/past-match/requests', [AdminPanelController::class, 'pastMatchRequestOptions']);
