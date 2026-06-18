@@ -1922,6 +1922,7 @@ class AdminPanelController extends Controller
         $deliveries = NotificationDelivery::query()
             ->when($userIds->isNotEmpty(), fn ($query) => $query->whereIn('user_id', $userIds->all()))
             ->where('sent_at', '>=', $bloodRequest->created_at->copy()->subDay())
+            ->with('user.donorProfile')
             ->latest('sent_at')
             ->get();
 
@@ -2578,7 +2579,7 @@ class AdminPanelController extends Controller
                     $matchedAlertIds[] = $matchedAlert->id;
                 }
 
-                $donor = $donorsByUserId->get($delivery->user_id);
+                $donor = $donorsByUserId->get($delivery->user_id) ?? $delivery->user?->donorProfile;
                 $responseRecord = $donor ? $responsesByDonorId->get($donor->id) : null;
                 $responseTimeSeconds = $this->notificationResponseTimeSeconds($deliveryTime, $responseRecord?->responded_at);
                 $responseStatus = $responseRecord && $responseRecord->responded_at && $deliveryTime && $responseRecord->responded_at->greaterThanOrEqualTo($deliveryTime)

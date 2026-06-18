@@ -236,8 +236,8 @@
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
                   <p class="text-xs font-semibold uppercase tracking-wide" :class="speedClass(entry.speed_label)">{{ entry.speed_label }}</p>
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="inline-flex items-center rounded-2xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100" :disabled="!entry.donor_id || controlLoading" @click.stop="runControl('resend_notification', entry)">Resend notification</button>
-                    <button type="button" class="inline-flex items-center rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100" :disabled="!entry.donor_id" @click.stop="openManualMessage(entry)">Send manual message</button>
+                    <button type="button" class="inline-flex items-center rounded-2xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100" :disabled="controlLoading" @click.stop="handleResendNotification(entry)">Resend notification</button>
+                    <button type="button" class="inline-flex items-center rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100" :disabled="controlLoading" @click.stop="openManualMessage(entry)">Send manual message</button>
                   </div>
                 </div>
               </div>
@@ -591,7 +591,8 @@ const runControl = async (action, entry = null, extra = {}) => {
 
   try {
     const payload = { action, ...extra };
-    if (entry?.donor_id) payload.donor_id = entry.donor_id;
+    const entryDonorId = resolveEntryDonorId(entry);
+    if (entryDonorId) payload.donor_id = entryDonorId;
 
     const response = await api.post(`/admin/notifications/${selectedRequestId.value}/control`, payload);
     showToast(response.data?.message || 'Control action completed.');
@@ -611,10 +612,43 @@ const runControl = async (action, entry = null, extra = {}) => {
   }
 };
 
+const resolveEntryDonorId = (entry) => {
+  if (!entry) return null;
+
+  const explicitDonorId = Number(entry.donor_id);
+  if (Number.isInteger(explicitDonorId) && explicitDonorId > 0) {
+    return explicitDonorId;
+  }
+
+  const donorCode = String(entry.donor_code || '');
+  const codeMatch = donorCode.match(/^DNR-(\d+)$/i);
+
+  if (!codeMatch) return null;
+
+  const parsedDonorId = Number(codeMatch[1]);
+  return Number.isInteger(parsedDonorId) && parsedDonorId > 0 ? parsedDonorId : null;
+};
+
+const handleResendNotification = async (entry) => {
+  if (!resolveEntryDonorId(entry)) {
+    showToast('This stream entry is not linked to a donor yet.', 'error');
+    return;
+  }
+
+  await runControl('resend_notification', entry);
+};
+
 const openManualMessage = (entry) => {
+  const donorId = resolveEntryDonorId(entry);
+
+  if (!donorId) {
+    showToast('This stream entry is not linked to a donor yet.', 'error');
+    return;
+  }
+
   manualModal.value = {
     open: true,
-    donorId: entry.donor_id,
+    donorId,
     donorName: entry.donor_name,
     title: 'Manual Admin Message',
     message: '',
