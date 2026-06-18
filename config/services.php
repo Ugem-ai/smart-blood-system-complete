@@ -41,9 +41,9 @@ return [
     ],
 
     'unisms' => [
-        'api_key' => env('UNISMS_API_KEY'),
-        'sender_id' => env('UNISMS_SENDER_ID'),
-        'endpoint' => env('UNISMS_ENDPOINT', 'https://unismsapi.com/v1/messages'),
+        'api_key' => env('UNISMS_API_KEY', ''),
+        'sender_id' => env('UNISMS_SENDER_ID', ''),
+        'endpoint' => env('UNISMS_ENDPOINT', 'https://unismsapi.com/api/sms'),
     ],
 
     'notifications' => [

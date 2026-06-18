@@ -599,7 +599,7 @@ class NotificationService
     private function isUnismsConfigured(): bool
     {
         return trim((string) config('services.unisms.api_key', '')) !== ''
-            && trim((string) config('services.unisms.sender_id', '')) !== '';
+            && trim((string) config('services.unisms.endpoint', '')) !== '';
     }
 
     private function isEmailConfigured(): bool
@@ -696,16 +696,18 @@ class NotificationService
             $start = microtime(true);
 
             try {
+                $body = [
+                    'recipient' => $to,
+                    'content' => $message,
+                ];
+
+                if ($senderId !== '') {
+                    $body['sender_id'] = $senderId;
+                }
+
                 $response = Http::acceptJson()
-                    ->withToken($apiKey)
-                    ->post($endpoint, [
-                        'from' => $senderId,
-                        'to' => $to,
-                        'message' => $message,
-                        'type' => $type,
-                        'meta' => $meta,
-                        'api_key' => $apiKey,
-                    ]);
+                    ->withBasicAuth($apiKey, '')
+                    ->post($endpoint, $body);
 
                 $durationMs = (microtime(true) - $start) * 1000;
                 $attemptSuccess = $response->successful();
