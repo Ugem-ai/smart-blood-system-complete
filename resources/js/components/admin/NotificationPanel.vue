@@ -191,7 +191,17 @@
             </div>
 
             <div v-else class="mt-6 space-y-4">
-              <button v-for="entry in filteredStream" :key="entry.id" type="button" class="stream-card text-left" :class="activeEntry?.id === entry.id ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'" @click="activeEntryId = entry.id">
+              <div
+                v-for="entry in filteredStream"
+                :key="entry.id"
+                class="stream-card text-left"
+                :class="activeEntry?.id === entry.id ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'"
+                role="button"
+                tabindex="0"
+                @click="activeEntryId = entry.id"
+                @keydown.enter.prevent="activeEntryId = entry.id"
+                @keydown.space.prevent="activeEntryId = entry.id"
+              >
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p class="font-semibold text-gray-950">{{ entry.donor_name }} <span class="text-xs text-gray-400">{{ entry.donor_code }}</span></p>
@@ -230,7 +240,7 @@
                     <button type="button" class="inline-flex items-center rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100" :disabled="!entry.donor_id" @click.stop="openManualMessage(entry)">Send manual message</button>
                   </div>
                 </div>
-              </button>
+              </div>
             </div>
           </div>
 
@@ -583,8 +593,10 @@ const runControl = async (action, entry = null, extra = {}) => {
     const response = await api.post(`/admin/notifications/${selectedRequestId.value}/control`, payload);
     showToast(response.data?.message || 'Control action completed.');
     await loadDashboard(true);
+    return true;
   } catch {
     showToast('Control action failed.', 'error');
+    return false;
   } finally {
     controlLoading.value = false;
   }
@@ -606,12 +618,15 @@ const closeManualMessage = () => {
 
 const sendManualMessage = async () => {
   if (!manualModal.value.donorId) return;
-  await runControl('manual_message', { donor_id: manualModal.value.donorId }, {
+  const success = await runControl('manual_message', { donor_id: manualModal.value.donorId }, {
     donor_id: manualModal.value.donorId,
     title: manualModal.value.title,
     message: manualModal.value.message,
   });
-  closeManualMessage();
+
+  if (success) {
+    closeManualMessage();
+  }
 };
 
 const urgencyBadge = (urgency) => {
