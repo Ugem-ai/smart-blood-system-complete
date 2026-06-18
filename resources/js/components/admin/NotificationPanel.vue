@@ -583,7 +583,10 @@ const loadDashboard = async (silent = false) => {
 };
 
 const runControl = async (action, entry = null, extra = {}) => {
-  if (!selectedRequestId.value) return;
+  if (!selectedRequestId.value) {
+    showToast('Please select a blood request first.', 'error');
+    return false;
+  }
   controlLoading.value = true;
 
   try {
@@ -594,8 +597,14 @@ const runControl = async (action, entry = null, extra = {}) => {
     showToast(response.data?.message || 'Control action completed.');
     await loadDashboard(true);
     return true;
-  } catch {
-    showToast('Control action failed.', 'error');
+  } catch (err) {
+    const apiMessage = err?.response?.data?.message;
+    const validationErrors = err?.response?.data?.errors;
+    const firstValidationError = validationErrors
+      ? Object.values(validationErrors)?.flat?.()?.[0]
+      : null;
+
+    showToast(apiMessage || firstValidationError || 'Control action failed.', 'error');
     return false;
   } finally {
     controlLoading.value = false;
@@ -617,11 +626,21 @@ const closeManualMessage = () => {
 };
 
 const sendManualMessage = async () => {
-  if (!manualModal.value.donorId) return;
+  if (!manualModal.value.donorId) {
+    showToast('A donor is required for manual messaging.', 'error');
+    return;
+  }
+
+  const trimmedMessage = (manualModal.value.message || '').trim();
+  if (!trimmedMessage) {
+    showToast('Please enter a message before sending.', 'error');
+    return;
+  }
+
   const success = await runControl('manual_message', { donor_id: manualModal.value.donorId }, {
     donor_id: manualModal.value.donorId,
     title: manualModal.value.title,
-    message: manualModal.value.message,
+    message: trimmedMessage,
   });
 
   if (success) {

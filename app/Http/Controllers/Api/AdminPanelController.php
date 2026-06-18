@@ -1968,7 +1968,7 @@ class AdminPanelController extends Controller
     ): JsonResponse {
         $validated = $request->validate([
             'action' => ['required', 'string', 'in:resend_notification,manual_message,broadcast_eligible_donors,cancel_pending_notifications,resume_notifications'],
-            'donor_id' => ['nullable', 'integer', 'exists:donors,id'],
+            'donor_id' => ['nullable', 'integer', 'exists:donors,id', 'required_if:action,resend_notification,manual_message'],
             'message' => ['nullable', 'string', 'max:1000'],
             'title' => ['nullable', 'string', 'max:120'],
         ]);
