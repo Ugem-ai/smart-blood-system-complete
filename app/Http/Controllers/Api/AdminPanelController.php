@@ -1978,7 +1978,11 @@ class AdminPanelController extends Controller
         switch ($validated['action']) {
             case 'resend_notification':
                 $donor = Donor::query()->findOrFail((int) $validated['donor_id']);
-                $notificationService->sendDonorAlert($donor, $bloodRequest);
+                $notificationService->sendDonorAlert(
+                    donor: $donor,
+                    bloodRequest: $bloodRequest,
+                    forceSend: true,
+                );
 
                 ActivityLog::record($request->user()?->id, 'notification.resend', [
                     'blood_request_id' => $bloodRequest->id,

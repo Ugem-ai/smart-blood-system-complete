@@ -23,17 +23,25 @@ class NotificationService
 
     private const TOKEN_ERROR_MISMATCH = 'MismatchSenderId';
 
-    public function sendDonorAlert(Donor $donor, BloodRequest $bloodRequest, ?float $distanceKm = null): void
+    public function sendDonorAlert(Donor $donor, BloodRequest $bloodRequest, ?float $distanceKm = null, bool $forceSend = false): void
     {
         $cooldownService = app(DonorCooldownService::class);
 
-        if (! $cooldownService->canNotifyDonor($donor)) {
+        if (! $forceSend && ! $cooldownService->canNotifyDonor($donor)) {
             ActivityLog::record(null, 'notification.throttled.cooldown', [
                 'donor_id' => $donor->id,
                 'blood_request_id' => $bloodRequest->id,
             ]);
 
             return;
+        }
+
+        if ($forceSend) {
+            ActivityLog::record(null, 'notification.force-resend', [
+                'donor_id' => $donor->id,
+                'blood_request_id' => $bloodRequest->id,
+                'reason' => 'admin_resend_action',
+            ]);
         }
 
         $title = 'Emergency Blood Request';
