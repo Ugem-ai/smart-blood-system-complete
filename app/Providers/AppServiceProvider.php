@@ -28,9 +28,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Only force HTTPS URL generation when the incoming request is already secure.
-        // This prevents local/LAN HTTP runs from producing https://127.0.0.1 asset URLs.
-        if ( config('app.url')== 'production') {
+        // Force HTTPS URL generation in production to prevent mixed content errors.
+        // This ensures all generated URLs use https:// scheme, even if the request arrives via HTTP.
+        if (config('app.env') === 'production') {
             URL::forceScheme('https');
         }
 
