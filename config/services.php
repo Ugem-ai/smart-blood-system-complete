@@ -40,6 +40,12 @@ return [
         'endpoint' => env('FCM_ENDPOINT', 'https://fcm.googleapis.com/fcm/send'),
     ],
 
+    'onesignal' => [
+        'app_id' => env('ONESIGNAL_APP_ID'),
+        'rest_api_key' => env('ONESIGNAL_REST_API_KEY'),
+        'endpoint' => env('ONESIGNAL_ENDPOINT', 'https://api.onesignal.com/notifications?c=push'),
+    ],
+
     'unisms' => [
         'api_key' => env('UNISMS_API_KEY', ''),
         'sender_id' => env('UNISMS_SENDER_ID', ''),

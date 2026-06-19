@@ -134,7 +134,7 @@ class NotificationService
 
     public function notificationHealth(): array
     {
-        $pushConfigured = trim((string) config('services.fcm.server_key', '')) !== '';
+        $pushConfigured = $this->isOneSignalConfigured();
         $smsConfigured = $this->isTwilioConfigured() || $this->isUnismsConfigured();
         $smsProvider = $this->smsProvider();
         $emailConfigured = $this->isEmailConfigured();
@@ -200,8 +200,9 @@ class NotificationService
     public function sendPushNotification(User $user, string $type, string $title, string $message, array $data = []): bool
     {
         $metrics = app(MonitoringMetricsService::class);
-        $serverKey = (string) config('services.fcm.server_key');
-        $endpoint = (string) config('services.fcm.endpoint', 'https://fcm.googleapis.com/fcm/send');
+        $appId = trim((string) config('services.onesignal.app_id', ''));
+        $restApiKey = trim((string) config('services.onesignal.rest_api_key', ''));
+        $endpoint = (string) config('services.onesignal.endpoint', 'https://api.onesignal.com/notifications?c=push');
         $batchSize = max(1, (int) config('services.notifications.push_batch_size', 100));
         $batchPacingUs = max(0, (int) config('services.notifications.push_batch_pacing_us', 100000));
         $tokens = DeviceToken::query()
@@ -211,94 +212,39 @@ class NotificationService
             ->values();
 
         if ($tokens->isEmpty()) {
-            if ($serverKey !== '') {
-                $start = microtime(true);
+            $this->recordDelivery(
+                userId: $user->id,
+                type: $type,
+                channel: 'push',
+                status: 'skipped',
+                response: ['reason' => 'no_device_tokens'],
+                durationMs: 0
+            );
 
-                try {
-                    $response = Http::withToken($serverKey)
-                        ->acceptJson()
-                        ->post($endpoint, [
-                            'to' => 'unregistered-device-token',
-                            'notification' => [
-                                'title' => $title,
-                                'body' => $message,
-                            ],
-                            'data' => $data,
-                        ]);
-
-                    $this->recordDelivery(
-                        userId: $user->id,
-                        type: $type,
-                        channel: 'push',
-                        status: 'failed',
-                        response: [
-                            'title' => $title,
-                            'message' => $message,
-                            'payload' => $data,
-                            'reason' => 'no_device_tokens',
-                            'http_status' => $response->status(),
-                            'response' => $response->json(),
-                        ],
-                        durationMs: (microtime(true) - $start) * 1000
-                    );
-                } catch (Throwable $exception) {
-                    $this->recordDelivery(
-                        userId: $user->id,
-                        type: $type,
-                        channel: 'push',
-                        status: 'failed',
-                        response: [
-                            'title' => $title,
-                            'message' => $message,
-                            'payload' => $data,
-                            'reason' => 'no_device_tokens',
-                            'exception' => $exception->getMessage(),
-                        ],
-                        durationMs: (microtime(true) - $start) * 1000
-                    );
-                }
-            } else {
-                $this->recordDelivery(
-                    userId: $user->id,
-                    type: $type,
-                    channel: 'push',
-                    status: 'failed',
-                    response: [
-                        'title' => $title,
-                        'message' => $message,
-                        'payload' => $data,
-                        'reason' => 'no_device_tokens',
-                    ],
-                    durationMs: 0
-                );
-            }
+            Log::info('notification.push.skipped', [
+                'user_id' => $user->id,
+                'type' => $type,
+                'reason' => 'no_device_tokens',
+            ]);
 
             $metrics->recordNotificationResult('push', false);
 
             return false;
         }
 
-        if ($serverKey === '') {
+        if ($appId === '' || $restApiKey === '') {
             $this->recordDelivery(
                 userId: $user->id,
                 type: $type,
                 channel: 'push',
-                status: 'failed',
-                response: [
-                    'title' => $title,
-                    'message' => $message,
-                    'payload' => $data,
-                    'reason' => 'fcm_not_configured',
-                ],
+                status: 'skipped',
+                response: ['reason' => 'onesignal_not_configured'],
                 durationMs: 0
             );
 
-            Log::info('FCM server key not configured. Push notification skipped.', [
+            Log::info('notification.push.skipped_unconfigured', [
                 'user_id' => $user->id,
                 'type' => $type,
-                'title' => $title,
-                'message' => $message,
-                'data' => $data,
             ]);
 
             $metrics->recordNotificationResult('push', false);
@@ -313,30 +259,36 @@ class NotificationService
                 $start = microtime(true);
                 $chunkTokens = $chunk->values()->all();
 
-                $response = Http::withToken($serverKey)
+                $response = Http::withHeaders([
+                    'Authorization' => 'Key '.$restApiKey,
+                ])
                     ->acceptJson()
                     ->post($endpoint, [
-                        'registration_ids' => $chunkTokens,
-                        'notification' => [
-                            'title' => $title,
-                            'body' => $message,
+                        'app_id' => $appId,
+                        'include_subscription_ids' => $chunkTokens,
+                        'target_channel' => 'push',
+                        'headings' => [
+                            'en' => $title,
+                        ],
+                        'contents' => [
+                            'en' => $message,
                         ],
                         'data' => $data,
                     ]);
 
                 $durationMs = (microtime(true) - $start) * 1000;
+                $responseBody = $response->json();
 
                 $payload = [
                     'title' => $title,
                     'message' => $message,
                     'payload' => $data,
                     'http_status' => $response->status(),
-                    'response' => $response->json(),
+                    'response' => $responseBody,
                     'token_batch_size' => count($chunkTokens),
                 ];
 
-                $batchSuccessful = $response->successful()
-                    && ((int) data_get($response->json(), 'failure', 0) === 0);
+                $batchSuccessful = $response->successful() && blank(data_get($responseBody, 'errors'));
 
                 $this->recordDelivery(
                     userId: $user->id,
@@ -352,8 +304,6 @@ class NotificationService
                 if (! $batchSuccessful) {
                     $allSuccessful = false;
                 }
-
-                $this->cleanupInvalidTokens($chunkTokens, (array) data_get($response->json(), 'results', []));
 
                 if ($batchPacingUs > 0) {
                     usleep($batchPacingUs);
@@ -608,6 +558,12 @@ class NotificationService
     {
         return trim((string) config('services.unisms.api_key', '')) !== ''
             && trim((string) config('services.unisms.endpoint', '')) !== '';
+    }
+
+    private function isOneSignalConfigured(): bool
+    {
+        return trim((string) config('services.onesignal.app_id', '')) !== ''
+            && trim((string) config('services.onesignal.rest_api_key', '')) !== '';
     }
 
     private function isEmailConfigured(): bool
