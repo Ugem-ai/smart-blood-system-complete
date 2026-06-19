@@ -211,6 +211,21 @@ class NotificationService
         );
     }
 
+    public function sendDonorReadinessCheck(Donor $donor): void
+    {
+        $this->sendWithFallback(
+            user: $donor->user,
+            smsTarget: $donor->phone ?? $donor->contact_number,
+            type: 'admin_donor_readiness_ping',
+            title: 'Donor Readiness Check',
+            message: 'A blood operations coordinator requested a readiness update. Please confirm your availability.',
+            data: [
+                'type' => 'admin_donor_readiness_ping',
+                'donor_id' => $donor->id,
+            ]
+        );
+    }
+
     public function sendPushNotification(User $user, string $type, string $title, string $message, array $data = []): bool
     {
         $metrics = app(MonitoringMetricsService::class);

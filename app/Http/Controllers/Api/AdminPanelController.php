@@ -740,17 +740,8 @@ class AdminPanelController extends Controller
                 bloodRequest: $activeRequest,
                 distanceKm: $this->distanceToRequest($donor, $activeRequest, $donorFilterService),
             );
-        } elseif ($donor->user) {
-            $notificationService->sendPushNotification(
-                user: $donor->user,
-                type: 'admin_donor_readiness_ping',
-                title: 'Donor Readiness Check',
-                message: 'A blood operations coordinator requested a readiness update. Please confirm your availability.',
-                data: [
-                    'type' => 'admin_donor_readiness_ping',
-                    'donor_id' => $donor->id,
-                ],
-            );
+        } else {
+            $notificationService->sendDonorReadinessCheck($donor);
         }
 
         ActivityLog::record($request->user()?->id, 'donor.notified', [
