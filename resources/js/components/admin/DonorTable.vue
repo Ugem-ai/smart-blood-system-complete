@@ -679,7 +679,7 @@ const confirmAction = async () => {
   try {
     const { donor, action } = confirmModal.value;
     await api.post(`/admin/donors/${donor.id}/${action}`);
-    showToast(`${donor.name} ${action === 'notify' ? 'has been notified' : action === 'suspend' ? 'has been suspended' : 'has been prioritized'}.`);
+    showToast(`${donor.name} ${action === 'notify' ? 'has been notified' : action === 'suspend' ? 'has been suspended' : action === 'prioritize' ? 'has been prioritized' : 'action completed'}.`);
     closeActionModal();
     await loadDonors(currentPage.value);
 
@@ -687,7 +687,8 @@ const confirmAction = async () => {
       await fetchDonorProfile(donor.id);
     }
   } catch (actionError) {
-    showToast('Action failed. Please try again.', 'error');
+    const errorMessage = actionError?.response?.data?.message || 'Action failed. Please try again.';
+    showToast(errorMessage, 'error');
     confirmModal.value.loading = false;
   }
 };
