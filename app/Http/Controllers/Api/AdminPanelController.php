@@ -1984,6 +1984,7 @@ class AdminPanelController extends Controller
         $validated = $request->validate([
             'action' => ['required', 'string', 'in:resend_notification,manual_message,broadcast_eligible_donors,cancel_pending_notifications,resume_notifications'],
             'donor_id' => ['nullable', 'integer', 'exists:donors,id', 'required_if:action,resend_notification,manual_message'],
+            'channel' => ['nullable', 'string', 'in:sms,email'],
             'message' => ['nullable', 'string', 'max:1000'],
             'title' => ['nullable', 'string', 'max:120'],
         ]);
@@ -1997,11 +1998,13 @@ class AdminPanelController extends Controller
                     donor: $donor,
                     bloodRequest: $bloodRequest,
                     forceSend: true,
+                    preferredChannel: $validated['channel'] ?? null,
                 );
 
                 ActivityLog::record($request->user()?->id, 'notification.resend', [
                     'blood_request_id' => $bloodRequest->id,
                     'donor_id' => $donor->id,
+                    'channel' => $validated['channel'] ?? 'auto',
                 ]);
 
                 $message = 'Notification resent to the selected donor.';
@@ -2020,12 +2023,14 @@ class AdminPanelController extends Controller
                     bloodRequest: $bloodRequest,
                     message: $manualMessage,
                     title: (string) ($validated['title'] ?? 'Manual Admin Message'),
+                    preferredChannel: $validated['channel'] ?? null,
                 );
 
                 ActivityLog::record($request->user()?->id, 'notification.manual-message', [
                     'blood_request_id' => $bloodRequest->id,
                     'donor_id' => $donor->id,
                     'title' => $validated['title'] ?? 'Manual Admin Message',
+                    'channel' => $validated['channel'] ?? 'auto',
                 ]);
 
                 $message = 'Manual message sent to the selected donor.';

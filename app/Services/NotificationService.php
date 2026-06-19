@@ -23,7 +23,13 @@ class NotificationService
 
     private const TOKEN_ERROR_MISMATCH = 'MismatchSenderId';
 
-    public function sendDonorAlert(Donor $donor, BloodRequest $bloodRequest, ?float $distanceKm = null, bool $forceSend = false): void
+    public function sendDonorAlert(
+        Donor $donor,
+        BloodRequest $bloodRequest,
+        ?float $distanceKm = null,
+        bool $forceSend = false,
+        ?string $preferredChannel = null
+    ): void
     {
         $cooldownService = app(DonorCooldownService::class);
 
@@ -66,7 +72,8 @@ class NotificationService
             type: 'emergency_blood_request',
             title: $title,
             message: $message,
-            data: $payload
+            data: $payload,
+            preferredChannel: $preferredChannel
         );
     }
 
@@ -116,7 +123,13 @@ class NotificationService
         );
     }
 
-    public function sendCustomDonorMessage(Donor $donor, BloodRequest $bloodRequest, string $message, string $title = 'Manual Admin Message'): void
+    public function sendCustomDonorMessage(
+        Donor $donor,
+        BloodRequest $bloodRequest,
+        string $message,
+        string $title = 'Manual Admin Message',
+        ?string $preferredChannel = null
+    ): void
     {
         $this->sendWithFallback(
             user: $donor->user,
@@ -128,7 +141,8 @@ class NotificationService
                 'type' => 'manual_admin_message',
                 'blood_request_id' => $bloodRequest->id,
                 'donor_id' => $donor->id,
-            ]
+            ],
+            preferredChannel: $preferredChannel
         );
     }
 
@@ -735,9 +749,68 @@ class NotificationService
         string $type,
         string $title,
         string $message,
-        array $data
+        array $data,
+        ?string $preferredChannel = null
     ): void {
         $userId = $user?->id;
+        $normalizedChannel = $preferredChannel ? strtolower(trim($preferredChannel)) : null;
+
+        if (in_array($normalizedChannel, ['sms', 'email'], true)) {
+            if ($normalizedChannel === 'sms') {
+                $smsSucceeded = $this->sendSms(
+                    userId: $userId,
+                    type: $type,
+                    to: $smsTarget,
+                    message: trim($title.' - '.str_replace("\n", ' | ', $message)),
+                    meta: [
+                        'title' => $title,
+                        'message' => $message,
+                        'payload' => $data,
+                        'preferred_channel' => 'sms',
+                    ]
+                );
+
+                if ($smsSucceeded) {
+                    return;
+                }
+            }
+
+            if ($normalizedChannel === 'email') {
+                $emailSucceeded = $this->sendEmail(
+                    userId: $userId,
+                    type: $type,
+                    to: $user?->email,
+                    subject: $title,
+                    body: trim($title.' - '.str_replace("\n", ' | ', $message)),
+                    meta: [
+                        'title' => $title,
+                        'message' => $message,
+                        'payload' => $data,
+                        'preferred_channel' => 'email',
+                    ]
+                );
+
+                if ($emailSucceeded) {
+                    return;
+                }
+            }
+
+            ActivityLog::record(null, 'notification.delivery.channel_forced_failed', [
+                'user_id' => $userId,
+                'type' => $type,
+                'forced_channel' => $normalizedChannel,
+                'reason' => 'channel_delivery_failed',
+            ]);
+
+            Log::warning('notification.delivery.channel_forced_failed', [
+                'user_id' => $userId,
+                'type' => $type,
+                'forced_channel' => $normalizedChannel,
+            ]);
+
+            return;
+        }
+
         $pushSucceeded = false;
 
         if ($user && ! $this->shouldSkipPushDueToStaleDeviceTokens($user)) {

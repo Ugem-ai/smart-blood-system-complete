@@ -183,7 +183,14 @@
                 <p class="text-xs font-black uppercase tracking-[0.2em] text-gray-500">Real-Time Notification Stream</p>
                 <h3 class="mt-2 text-xl font-black text-gray-950">Live donor communication feed</h3>
               </div>
-              <span class="rounded-full bg-gray-950 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white">{{ filteredStream.length }} items</span>
+              <div class="flex items-center gap-2">
+                <label class="text-xs font-bold uppercase tracking-[0.14em] text-gray-500">Channel</label>
+                <select v-model="preferredControlChannel" class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700">
+                  <option value="sms">SMS</option>
+                  <option value="email">Email</option>
+                </select>
+                <span class="rounded-full bg-gray-950 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white">{{ filteredStream.length }} items</span>
+              </div>
             </div>
 
             <div v-if="filteredStream.length === 0" class="mt-6 rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center text-sm text-gray-500">
@@ -363,6 +370,13 @@
 
           <div class="mt-5 space-y-4">
             <label class="block">
+              <span class="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Send Via</span>
+              <select v-model="manualModal.channel" class="filter-input">
+                <option value="sms">SMS</option>
+                <option value="email">Email</option>
+              </select>
+            </label>
+            <label class="block">
               <span class="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Title</span>
               <input v-model="manualModal.title" type="text" class="filter-input" />
             </label>
@@ -421,9 +435,12 @@ const manualModal = ref({
   open: false,
   donorId: null,
   donorName: '',
+  channel: 'sms',
   title: 'Manual Admin Message',
   message: '',
 });
+
+const preferredControlChannel = ref('sms');
 
 const toast = ref({ message: '', type: 'success' });
 
@@ -643,7 +660,9 @@ const handleResendNotification = async (entry) => {
     return;
   }
 
-  await runControl('resend_notification', entry);
+  await runControl('resend_notification', entry, {
+    channel: preferredControlChannel.value,
+  });
 };
 
 const openManualMessage = (entry) => {
@@ -658,13 +677,14 @@ const openManualMessage = (entry) => {
     open: true,
     donorId,
     donorName: entry.donor_name,
+    channel: preferredControlChannel.value,
     title: 'Manual Admin Message',
     message: '',
   };
 };
 
 const closeManualMessage = () => {
-  manualModal.value = { open: false, donorId: null, donorName: '', title: 'Manual Admin Message', message: '' };
+  manualModal.value = { open: false, donorId: null, donorName: '', channel: preferredControlChannel.value, title: 'Manual Admin Message', message: '' };
 };
 
 const sendManualMessage = async () => {
@@ -681,6 +701,7 @@ const sendManualMessage = async () => {
 
   const success = await runControl('manual_message', { donor_id: manualModal.value.donorId }, {
     donor_id: manualModal.value.donorId,
+    channel: manualModal.value.channel,
     title: manualModal.value.title,
     message: trimmedMessage,
   });
