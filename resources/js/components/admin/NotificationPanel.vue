@@ -190,12 +190,16 @@
               No notifications yet. Once a blood request is processed, this panel will display real-time donor communication, delivery status, and response behavior.
             </div>
 
-            <div v-else class="mt-6 space-y-4">
+            <div
+              v-else
+              class="mt-6 space-y-4"
+              :class="filteredStream.length > 5 ? 'max-h-[48rem] overflow-y-auto pr-2' : ''"
+            >
               <div
                 v-for="entry in filteredStream"
                 :key="entry.id"
                 class="stream-card text-left"
-                :class="activeEntry?.id === entry.id ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'"
+                :class="activeEntry?.id === entry.id ? 'border-red-300 bg-red-50 shadow-md' : 'border-gray-200 bg-white shadow-sm'"
                 role="button"
                 tabindex="0"
                 @click="activeEntryId = entry.id"
@@ -204,17 +208,17 @@
               >
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p class="font-semibold text-gray-950">{{ entry.donor_name }} <span class="text-xs text-gray-400">{{ entry.donor_code }}</span></p>
-                    <p class="mt-1 text-sm text-gray-600">{{ entry.message_preview }}</p>
+                    <p class="text-base font-bold text-gray-950">{{ entry.donor_name }} <span class="text-xs text-gray-500">{{ entry.donor_code }}</span></p>
+                    <p class="mt-2 text-sm leading-6 text-gray-700">{{ entry.message_preview }}</p>
                   </div>
                   <div class="flex flex-wrap justify-end gap-2">
-                    <span class="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide" :class="channelClass(entry.channel)">{{ entry.channel }}</span>
-                    <span class="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide" :class="deliveryClass(entry.delivery_status)">{{ entry.delivery_status }}</span>
-                    <span class="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide" :class="responseClass(entry.response_status)">{{ entry.response_status }}</span>
+                    <span class="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide" :class="channelClass(entry.channel)">{{ entry.channel }}</span>
+                    <span class="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide" :class="deliveryClass(entry.delivery_status)">{{ entry.delivery_status }}</span>
+                    <span class="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide" :class="responseClass(entry.response_status)">{{ entry.response_status }}</span>
                   </div>
                 </div>
 
-                <div class="mt-4 grid grid-cols-1 gap-3 text-sm text-gray-600 md:grid-cols-2 xl:grid-cols-4">
+                <div class="mt-5 grid grid-cols-1 gap-4 text-sm text-gray-600 md:grid-cols-2 xl:grid-cols-4">
                   <div>
                     <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Timestamp</p>
                     <p class="mt-1">{{ formatDateTime(entry.timestamp) }}</p>
@@ -236,8 +240,8 @@
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
                   <p class="text-xs font-semibold uppercase tracking-wide" :class="speedClass(entry.speed_label)">{{ entry.speed_label }}</p>
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="inline-flex items-center rounded-2xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100" :disabled="controlLoading" @click.stop="handleResendNotification(entry)">Resend notification</button>
-                    <button type="button" class="inline-flex items-center rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100" :disabled="controlLoading" @click.stop="openManualMessage(entry)">Send manual message</button>
+                    <button type="button" class="inline-flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100" :disabled="controlLoading" @click.stop="handleResendNotification(entry)">Resend notification</button>
+                    <button type="button" class="inline-flex items-center rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100" :disabled="controlLoading" @click.stop="openManualMessage(entry)">Send manual message</button>
                   </div>
                 </div>
               </div>
@@ -489,6 +493,10 @@ const filteredStream = computed(() => {
   if (!dashboard.value?.notification_stream) return [];
 
   return dashboard.value.notification_stream.filter((entry) => {
+    const donorName = String(entry.donor_name || '').trim().toLowerCase();
+    const isDemoPlaceholder = donorName === 'demo donor' || donorName.startsWith('demo donor ');
+    if (isDemoPlaceholder) return false;
+
     if (filters.value.response !== 'all' && entry.response_status !== filters.value.response) return false;
     if (filters.value.channel !== 'all' && entry.channel !== filters.value.channel) return false;
     if (filters.value.deliveryStatus !== 'all' && entry.delivery_status !== filters.value.deliveryStatus) return false;
@@ -976,8 +984,12 @@ onUnmounted(() => {
   width: 100%;
   border-radius: 1.5rem;
   border: 1px solid rgb(229 231 235);
-  padding: 1rem;
+  padding: 1.2rem;
   transition: 160ms ease;
+}
+
+.stream-card {
+  border-width: 1.5px;
 }
 
 .control-button {
