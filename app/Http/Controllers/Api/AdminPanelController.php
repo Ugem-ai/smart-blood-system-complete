@@ -740,13 +740,22 @@ class AdminPanelController extends Controller
                 bloodRequest: $activeRequest,
                 distanceKm: $this->distanceToRequest($donor, $activeRequest, $donorFilterService),
             );
+            $messageType = 'request_alert';
         } else {
-            $notificationService->sendDonorReadinessCheck($donor);
+            $readinessSent = $notificationService->sendDonorReadinessCheck($donor);
+            if (!$readinessSent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot send notification. Donor has no verified contact information (phone, email, or device token).',
+                ], 422);
+            }
+            $messageType = 'readiness_check';
         }
 
         ActivityLog::record($request->user()?->id, 'donor.notified', [
             'donor_id' => $donor->id,
             'blood_request_id' => $activeRequest?->id,
+            'notification_type' => $messageType,
         ]);
 
         return response()->json([

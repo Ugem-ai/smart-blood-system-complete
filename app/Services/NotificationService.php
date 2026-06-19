@@ -211,11 +211,24 @@ class NotificationService
         );
     }
 
-    public function sendDonorReadinessCheck(Donor $donor): void
+    public function sendDonorReadinessCheck(Donor $donor): bool
     {
+        $smsTarget = $donor->phone ?? $donor->contact_number;
+        $email = $donor->email ?? $donor->user?->email;
+        $hasDeviceToken = DeviceToken::query()->where('user_id', $donor->user_id)->exists();
+        
+        if (!$hasDeviceToken && !$smsTarget && !$email) {
+            Log::warning('notification.readiness_check.skipped_no_contact', [
+                'donor_id' => $donor->id,
+                'user_id' => $donor->user_id,
+                'reason' => 'no_contact_methods_available',
+            ]);
+            return false;
+        }
+        
         $this->sendWithFallback(
             user: $donor->user,
-            smsTarget: $donor->phone ?? $donor->contact_number,
+            smsTarget: $smsTarget,
             type: 'admin_donor_readiness_ping',
             title: 'Donor Readiness Check',
             message: 'A blood operations coordinator requested a readiness update. Please confirm your availability.',
@@ -224,6 +237,7 @@ class NotificationService
                 'donor_id' => $donor->id,
             ]
         );
+        return true;
     }
 
     public function sendPushNotification(User $user, string $type, string $title, string $message, array $data = []): bool
