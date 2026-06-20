@@ -739,6 +739,7 @@ class AdminPanelController extends Controller
                 donor: $donor,
                 bloodRequest: $activeRequest,
                 distanceKm: $this->distanceToRequest($donor, $activeRequest, $donorFilterService),
+                forceSend: true,
             );
             $messageType = 'request_alert';
         } else {
