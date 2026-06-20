@@ -10,7 +10,7 @@ class SendTestEmail extends Command
 {
     protected $signature = 'notifications:send-test-email {--to=}';
 
-    protected $description = 'Send a test email using the configured mail transport (Resend)';
+    protected $description = 'Send a test email using the configured mail transport';
 
     public function handle(): int
     {
