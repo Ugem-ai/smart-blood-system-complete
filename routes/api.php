@@ -8,7 +8,9 @@ use App\Http\Controllers\Api\DonorResponseController;
 use App\Http\Controllers\Api\HospitalInventoryController;
 use App\Http\Controllers\Api\HospitalProfileController;
 use App\Http\Controllers\Api\HospitalRequestController;
+use App\Http\Controllers\Api\AdminChapterManagementController;
 use App\Http\Controllers\Api\ChapterInventoryController;
+use App\Http\Controllers\Api\ChapterPortalController;
 use App\Http\Controllers\Api\InventoryTransferController;
 use App\Http\Controllers\Api\MonitoringController;
 use Illuminate\Support\Facades\Route;
@@ -179,4 +181,36 @@ Route::middleware(['auth:sanctum', 'role:admin', 'audit', 'monitor', 'throttle:6
     Route::get('/admin/users', [AdminPanelController::class, 'users']);
     Route::patch('/admin/users/{user}', [AdminPanelController::class, 'updateUser']);
     Route::delete('/admin/users/{user}', [AdminPanelController::class, 'deleteUser']);
+
+    // Chapter management
+    Route::get('/admin/chapters', [AdminChapterManagementController::class, 'chapters']);
+    Route::post('/admin/chapters', [AdminChapterManagementController::class, 'createChapter']);
+
+    // Recommendations and nearby chapters
+    Route::get('/admin/inventory/recommendations', [AdminChapterManagementController::class, 'recommendations']);
+    Route::get('/admin/chapters/nearby', [AdminChapterManagementController::class, 'nearby']);
+
+    Route::get('/admin/chapters/{chapter}', [AdminChapterManagementController::class, 'showChapter']);
+    Route::put('/admin/chapters/{chapter}', [AdminChapterManagementController::class, 'updateChapter']);
+    Route::delete('/admin/chapters/{chapter}', [AdminChapterManagementController::class, 'deleteChapter']);
+
+    // Chapter inventory
+    Route::get('/admin/chapters/{chapter}/inventory', [AdminChapterManagementController::class, 'chapterInventory']);
+    Route::put('/admin/chapters/{chapter}/inventory/{inventory}', [AdminChapterManagementController::class, 'updateInventory']);
+
+    // Chapter transfer requests
+    Route::get('/admin/transfers', [AdminChapterManagementController::class, 'listTransfers']);
+    Route::post('/admin/transfers', [AdminChapterManagementController::class, 'createTransfer']);
+    Route::put('/admin/transfers/{transfer}/status', [AdminChapterManagementController::class, 'updateTransferStatus']);
+
+    // Chapter API key management
+    Route::get('/admin/chapters/{chapter}/api-keys', [AdminChapterManagementController::class, 'listApiKeys']);
+    Route::post('/admin/chapters/{chapter}/api-keys', [AdminChapterManagementController::class, 'generateApiKey']);
+    Route::delete('/admin/chapters/{chapter}/api-keys/{key}', [AdminChapterManagementController::class, 'revokeApiKey']);
+});
+
+Route::middleware(['chapter.api.key', 'throttle:60,1'])->prefix('chapters')->group(function () {
+    Route::get('/me', [ChapterPortalController::class, 'me']);
+    Route::get('/inventory', [ChapterPortalController::class, 'inventory']);
+    Route::post('/inventory/sync', [ChapterPortalController::class, 'sync']);
 });

@@ -53,6 +53,34 @@
       </div>
     </div>
 
+    <a-card :bordered="false" class="rounded-[1.75rem] border border-gray-200 shadow-sm">
+      <template #title>
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-900">Blood Type Demand</h3>
+          <span v-if="loading" class="text-xs text-gray-400">Loading...</span>
+        </div>
+      </template>
+      <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div class="mx-auto w-full max-w-[260px]">
+          <canvas ref="bloodTypeDemandCanvas" aria-label="Blood type demand donut chart" role="img"></canvas>
+        </div>
+        <div class="w-full lg:max-w-sm">
+          <ul class="space-y-3">
+            <li v-for="item in bloodTypeLegend" :key="item.type" class="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2">
+              <div class="flex items-center gap-2">
+                <span class="inline-block h-3 w-3 rounded-full" :style="{ backgroundColor: item.color }"></span>
+                <span class="text-sm font-semibold text-gray-800">{{ item.type }}</span>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-semibold text-gray-900">{{ item.percent }}%</p>
+                <p class="text-xs text-gray-500">{{ item.count }} requests</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </a-card>
+
     <div class="admin-panel">
       <div class="mb-4 flex items-center justify-between">
         <h3 class="text-sm font-semibold text-gray-900">Recent Activity Feed</h3>
@@ -75,13 +103,25 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import Chart from 'chart.js/auto';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import AdminPageFrame from './AdminPageFrame.vue';
 import api from '../../lib/api';
 
 const loading = ref(false);
 const error = ref('');
 const overview = ref({});
+const bloodTypeDemandCanvas = ref(null);
+const bloodTypeDemand = ref({
+  'O+': 0,
+  'A-': 0,
+  'B+': 0,
+  'AB+': 0,
+});
+
+let bloodTypeDemandChart = null;
+const bloodTypeOrder = ['O+', 'A-', 'B+', 'AB+'];
+const bloodTypeColors = ['#7a1020', '#c0392b', '#e67e22', '#f5b8b8'];
 
 const metricCards = computed(() => {
   const data = overview.value || {};
@@ -98,6 +138,22 @@ const metricCards = computed(() => {
 const requestTrend = computed(() => overview.value.requests_over_time || [3, 5, 4, 6, 8, 7, 9]);
 const responseTrend = computed(() => overview.value.response_rate_trend || [65, 70, 72, 75, 80, 83, 85]);
 const activityFeed = computed(() => overview.value.recent_activity || []);
+const bloodTypeLegend = computed(() => {
+  const demand = bloodTypeDemand.value || {};
+  const total = bloodTypeOrder.reduce((sum, type) => sum + (Number(demand[type]) || 0), 0);
+
+  return bloodTypeOrder.map((type, index) => {
+    const count = Number(demand[type]) || 0;
+    const percent = total > 0 ? Math.round((count / total) * 100) : 0;
+
+    return {
+      type,
+      count,
+      percent,
+      color: bloodTypeColors[index],
+    };
+  });
+});
 
 const badgeClass = (type) => {
   if (type === 'critical') return 'bg-red-100 text-red-700';
@@ -111,17 +167,99 @@ const formatDateTime = (value) => {
   return new Date(value).toLocaleString();
 };
 
+const normalizeRequestsPayload = (rawResponse) => {
+  const root = rawResponse?.data ?? rawResponse ?? {};
+  const payload = root?.success !== undefined ? root.data : (root.data ?? root);
+
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload)) return payload;
+  return [];
+};
+
+const buildBloodTypeDemand = (requests) => {
+  const counts = {
+    'O+': 0,
+    'A-': 0,
+    'B+': 0,
+    'AB+': 0,
+  };
+
+  requests.forEach((request) => {
+    const bloodType = String(request?.blood_type || '').toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(counts, bloodType)) {
+      counts[bloodType] += 1;
+    }
+  });
+
+  bloodTypeDemand.value = counts;
+};
+
+const destroyBloodTypeDemandChart = () => {
+  bloodTypeDemandChart?.destroy();
+  bloodTypeDemandChart = null;
+};
+
+const renderBloodTypeDemandChart = async () => {
+  await nextTick();
+
+  if (!bloodTypeDemandCanvas.value) return;
+
+  destroyBloodTypeDemandChart();
+
+  bloodTypeDemandChart = new Chart(bloodTypeDemandCanvas.value, {
+    type: 'doughnut',
+    data: {
+      labels: bloodTypeOrder,
+      datasets: [
+        {
+          data: bloodTypeOrder.map((type) => Number(bloodTypeDemand.value[type]) || 0),
+          backgroundColor: bloodTypeColors,
+          borderWidth: 0,
+          hoverOffset: 8,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              const value = Number(context.raw) || 0;
+              const total = context.dataset.data.reduce((sum, item) => sum + Number(item || 0), 0);
+              const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+              return `${context.label}: ${pct}% (${value})`;
+            },
+          },
+        },
+      },
+    },
+  });
+};
+
 const loadOverview = async () => {
   loading.value = true;
   error.value = '';
 
   try {
-    const response = await api.get('/admin/dashboard');
-    const raw = response.data || {};
+    const [dashboardResponse, requestsResponse] = await Promise.all([
+      api.get('/admin/dashboard'),
+      api.get('/admin/requests', { params: { per_page: 200 } }),
+    ]);
+
+    const rawRoot = dashboardResponse.data || {};
+    const raw = rawRoot.success !== undefined ? (rawRoot.data || {}) : rawRoot;
     const metrics = raw.metrics || {};
     const recentRequests = Array.isArray(raw.recent_requests) ? raw.recent_requests : [];
     const activeRequests = recentRequests.filter((r) => !['completed', 'cancelled'].includes(r.status));
     const criticalRequests = recentRequests.filter((r) => ['high', 'critical'].includes(r.urgency_level));
+
+    const allRequests = normalizeRequestsPayload(requestsResponse.data);
+    buildBloodTypeDemand(allRequests);
+    await renderBloodTypeDemandChart();
 
     overview.value = {
       total_active_requests: activeRequests.length,
@@ -145,4 +283,5 @@ const loadOverview = async () => {
 };
 
 onMounted(loadOverview);
+onUnmounted(destroyBloodTypeDemandChart);
 </script>

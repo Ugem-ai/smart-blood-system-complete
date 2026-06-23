@@ -11,6 +11,9 @@ class Chapter extends Model
     use HasFactory;
 
     protected $fillable = [
+        'name',
+        'location',
+        'is_active',
         'chapter_code',
         'chapter_name',
         'address',
@@ -31,6 +34,7 @@ class Chapter extends Model
         'latitude' => 'float',
         'longitude' => 'float',
         'capacity_units' => 'integer',
+        'is_active' => 'boolean',
         'synced_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -42,6 +46,26 @@ class Chapter extends Model
     public function bloodInventory(): HasMany
     {
         return $this->hasMany(BloodInventory::class);
+    }
+
+    public function chapterInventories(): HasMany
+    {
+        return $this->hasMany(ChapterInventory::class);
+    }
+
+    public function apiKeys(): HasMany
+    {
+        return $this->hasMany(ChapterApiKey::class);
+    }
+
+    public function transferRequestsOut(): HasMany
+    {
+        return $this->hasMany(ChapterTransferRequest::class, 'source_chapter_id');
+    }
+
+    public function transferRequestsIn(): HasMany
+    {
+        return $this->hasMany(ChapterTransferRequest::class, 'destination_chapter_id');
     }
 
     /**

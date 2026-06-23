@@ -36,7 +36,7 @@
           :key="u.value"
           @click="setUrgencyFilter(u.value)"
           :class="filters.urgency === u.value ? u.active : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-          class="rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+          class="rounded-full border px-3 py-1 text-xs font-semibold transition-colors"
         >
           {{ u.label }}
         </button>
@@ -81,6 +81,19 @@
         <span class="ml-auto text-xs text-gray-400">
           {{ pagination.total }} total request{{ pagination.total !== 1 ? 's' : '' }}
         </span>
+      </div>
+    </div>
+
+    <!-- ─── Urgency Summary Bar ───────────────────────────────────────── -->
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div
+        v-for="item in urgencySummary"
+        :key="item.key"
+        class="rounded-xl border bg-white px-4 py-3 shadow-sm"
+        :class="item.shellClass"
+      >
+        <p class="text-[11px] font-semibold uppercase tracking-wide" :class="item.labelClass">{{ item.label }}</p>
+        <p class="mt-1 text-xl font-bold" :class="item.valueClass">{{ item.count }}</p>
       </div>
     </div>
 
@@ -145,21 +158,22 @@
             <tr
               v-for="req in sortedRequests"
               :key="req.id"
-              :class="req.is_emergency || req.urgency_level === 'critical'
-                ? 'bg-red-50/50 hover:bg-red-50'
-                : 'hover:bg-gray-50'"
+              :class="[
+                req.is_emergency || req.urgency_level === 'critical' ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-gray-50',
+                req.status === 'cancelled' ? 'opacity-60' : ''
+              ]"
               class="transition-colors"
             >
               <!-- Blood Type + LIVE dot -->
-              <td class="px-4 py-3">
+              <td class="px-4 py-3" :class="rowLeftBorderClass(req)">
                 <div class="flex items-center gap-2">
                   <span class="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700 ring-1 ring-red-200">
                     {{ req.blood_type }}
                   </span>
-                  <div v-if="isLive(req)" class="flex items-center gap-1">
-                    <span class="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-red-600">LIVE</span>
-                  </div>
+                  <span v-if="isLive(req)" class="inline-flex animate-pulse items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700">
+                    <span class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
+                    LIVE
+                  </span>
                 </div>
               </td>
 
@@ -194,19 +208,23 @@
 
               <!-- Responses -->
               <td class="px-4 py-3">
-                <p class="text-xs">
+                <p class="text-xs font-semibold text-gray-700">
                   <span class="font-semibold text-green-700">{{ req.accepted_donors ?? 0 }}</span>
                   <span class="text-gray-400"> / </span>
                   <span class="font-semibold text-gray-700">{{ req.matched_donors_count ?? 0 }}</span>
                   <span class="text-gray-400"> donors</span>
                 </p>
+                <div class="mt-1 h-1.5 w-32 overflow-hidden rounded-full bg-red-100">
+                  <div class="h-full rounded-full bg-red-500" :style="{ width: `${responseProgress(req)}%` }"></div>
+                </div>
                 <p class="text-[11px] text-gray-400">{{ req.responses_received ?? 0 }} responded</p>
               </td>
 
               <!-- ETA countdown -->
               <td class="px-4 py-3">
                 <template v-if="req.required_on">
-                  <p class="text-xs font-semibold" :class="etaClass(req.required_on)">
+                  <p class="flex items-center gap-1 text-xs font-semibold" :class="etaClass(req.required_on)">
+                    <span v-if="isOverdue(req.required_on)" class="text-red-600">⚠️</span>
                     {{ etaLabel(req.required_on) }}
                   </p>
                   <p class="text-[11px] text-gray-400">{{ formatDate(req.required_on) }}</p>
@@ -501,11 +519,11 @@ let toastTimer          = null;
 
 // ─── Filter options ───────────────────────────────────────────────────
 const urgencyOptions = [
-  { value: '',         label: 'All',      active: 'bg-gray-800 text-white' },
-  { value: 'critical', label: '🔴 Critical', active: 'bg-red-600 text-white' },
-  { value: 'high',     label: '🟠 High',   active: 'bg-orange-500 text-white' },
-  { value: 'medium',   label: '🔵 Medium', active: 'bg-blue-500 text-white' },
-  { value: 'low',      label: '⚪ Low',    active: 'bg-gray-500 text-white' },
+  { value: '',         label: 'All',      active: 'border-gray-900 bg-gray-900 text-white shadow-sm' },
+  { value: 'critical', label: 'Critical', active: 'border-red-600 bg-red-600 text-white shadow-sm' },
+  { value: 'high',     label: 'High',     active: 'border-orange-500 bg-orange-500 text-white shadow-sm' },
+  { value: 'medium',   label: 'Medium',   active: 'border-blue-500 bg-blue-500 text-white shadow-sm' },
+  { value: 'low',      label: 'Low',      active: 'border-gray-500 bg-gray-500 text-white shadow-sm' },
 ];
 
 // ─── Computed ─────────────────────────────────────────────────────────
@@ -522,6 +540,51 @@ const sortedRequests = computed(() =>
     return diff !== 0 ? diff : new Date(b.created_at) - new Date(a.created_at);
   }),
 );
+
+const urgencySummary = computed(() => {
+  const counts = sortedRequests.value.reduce((acc, req) => {
+    const key = String(req.urgency_level || 'low').toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(acc, key)) {
+      acc[key] += 1;
+    }
+    return acc;
+  }, { critical: 0, high: 0, medium: 0, low: 0 });
+
+  return [
+    {
+      key: 'critical',
+      label: 'Critical',
+      count: counts.critical,
+      shellClass: 'border-red-200 bg-red-50',
+      labelClass: 'text-red-700',
+      valueClass: 'text-red-700',
+    },
+    {
+      key: 'high',
+      label: 'High',
+      count: counts.high,
+      shellClass: 'border-orange-200 bg-orange-50',
+      labelClass: 'text-orange-700',
+      valueClass: 'text-orange-700',
+    },
+    {
+      key: 'medium',
+      label: 'Medium',
+      count: counts.medium,
+      shellClass: 'border-blue-200 bg-blue-50',
+      labelClass: 'text-blue-700',
+      valueClass: 'text-blue-700',
+    },
+    {
+      key: 'low',
+      label: 'Low',
+      count: counts.low,
+      shellClass: 'border-gray-200 bg-gray-50',
+      labelClass: 'text-gray-600',
+      valueClass: 'text-gray-700',
+    },
+  ];
+});
 
 // ─── Style helpers ────────────────────────────────────────────────────
 const urgencyBadge = (u) => {
@@ -547,6 +610,15 @@ const statusBadge = (s) => {
 const isLive = (req) =>
   ['pending', 'matching'].includes(req.status) &&
   (req.is_emergency || ['critical', 'high'].includes(req.urgency_level));
+
+const rowLeftBorderClass = (req) => {
+  switch (String(req?.urgency_level || '').toLowerCase()) {
+    case 'critical': return 'border-l-4 border-red-500';
+    case 'high': return 'border-l-4 border-orange-500';
+    case 'medium': return 'border-l-4 border-blue-500';
+    default: return 'border-l-4 border-gray-300';
+  }
+};
 
 // ─── Date / ETA helpers ───────────────────────────────────────────────
 const formatDate = (d) => {
@@ -574,6 +646,18 @@ const etaClass = (d) => {
   if (diffMs < 3_600_000) return 'text-red-500 font-semibold';   // < 1 h
   if (diffMs < 86_400_000) return 'text-orange-500 font-semibold'; // < 24 h
   return 'text-green-600';
+};
+
+const isOverdue = (d) => {
+  if (!d) return false;
+  return new Date(d).getTime() <= Date.now();
+};
+
+const responseProgress = (req) => {
+  const matched = Number(req?.matched_donors_count ?? 0);
+  const accepted = Number(req?.accepted_donors ?? 0);
+  if (matched <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((accepted / matched) * 100)));
 };
 
 // ─── Pipeline step builder ────────────────────────────────────────────

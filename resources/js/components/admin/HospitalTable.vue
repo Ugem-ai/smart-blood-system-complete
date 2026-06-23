@@ -44,11 +44,15 @@
             </div>
           </div>
           <div>
-            <p class="text-4xl font-black tracking-tight text-gray-950">{{ card.value }}</p>
+            <p class="text-4xl font-black tracking-tight" :class="card.valueClass || 'text-gray-950'">{{ card.value }}</p>
             <p class="mt-1 text-xs font-medium uppercase tracking-[0.16em] text-gray-500">{{ card.detail }}</p>
           </div>
         </div>
       </button>
+    </div>
+
+    <div v-if="summary.active_hospitals === 0" class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 shadow-sm">
+      No hospitals are currently active - coordination may be affected
     </div>
 
     <div class="admin-panel">
@@ -58,9 +62,21 @@
           <p class="mt-1 text-sm text-gray-500">Immediate visual awareness of operational demand across the network.</p>
         </div>
         <div class="flex flex-wrap gap-2 text-sm">
-          <span class="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">🟢 Active</span>
-          <span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700">🟡 Idle</span>
-          <span class="inline-flex items-center gap-2 rounded-full bg-red-100 px-3 py-1 font-semibold text-red-700">🔴 Critical</span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">
+            <span class="text-base leading-none">🟢</span>
+            Active
+            <span class="rounded-full bg-white/80 px-2 py-0.5 text-xs font-black text-emerald-800">{{ statusOverview.active }}</span>
+          </span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700">
+            <span class="text-base leading-none">🟡</span>
+            Idle
+            <span class="rounded-full bg-white/80 px-2 py-0.5 text-xs font-black text-amber-800">{{ statusOverview.idle }}</span>
+          </span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-red-100 px-3 py-1 font-semibold text-red-700">
+            <span class="text-base leading-none">🔴</span>
+            Critical
+            <span class="rounded-full bg-white/80 px-2 py-0.5 text-xs font-black text-red-800">{{ statusOverview.critical }}</span>
+          </span>
         </div>
       </div>
     </div>
@@ -72,12 +88,17 @@
             <h3 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Advanced Filter Panel</h3>
             <p class="mt-1 text-sm text-gray-500">Filter hospitals by live operational demand and emergency posture.</p>
           </div>
-          <button v-if="hasActiveFilters" class="self-start rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100" @click="resetFilters">
-            Reset filters
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <button class="self-start rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50" @click="filtersCollapsed = !filtersCollapsed">
+              {{ filtersCollapsed ? 'Show Filters' : 'Hide Filters' }}
+            </button>
+            <button v-if="hasActiveFilters" class="self-start rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100" @click="resetFilters">
+              Reset filters
+            </button>
+          </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div v-show="!filtersCollapsed" class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
           <label class="block xl:col-span-2">
             <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Search</span>
             <input v-model="filters.search" type="text" placeholder="Search hospital name" class="filter-field" />
@@ -168,7 +189,19 @@
                     <span v-if="hospital.disabled" class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Disabled</span>
                     <span v-if="highlightState.changedIds.includes(hospital.id)" class="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-blue-700">Updated</span>
                   </div>
-                  <p class="mt-1 text-xs text-gray-500">Demand: {{ (hospital.blood_types_needed || []).join(', ') || 'No active demand' }}</p>
+                  <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Demand</span>
+                    <template v-if="(hospital.blood_types_needed || []).length">
+                      <span
+                        v-for="bloodType in hospital.blood_types_needed"
+                        :key="`${hospital.id}-${bloodType}`"
+                        class="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700"
+                      >
+                        {{ bloodType }}
+                      </span>
+                    </template>
+                    <span v-else class="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">No active demand</span>
+                  </div>
                 </div>
               </td>
               <td class="px-4 py-4 align-top text-sm text-gray-700">{{ hospital.location || 'Unknown location' }}</td>
@@ -178,16 +211,29 @@
                 </span>
               </td>
               <td class="px-4 py-4 align-top text-sm font-semibold text-gray-900">{{ hospital.active_requests_count }}</td>
-              <td class="px-4 py-4 align-top text-sm font-semibold" :class="hospital.critical_requests_count > 0 ? 'text-red-700' : 'text-gray-900'">{{ hospital.critical_requests_count }}</td>
-              <td class="px-4 py-4 align-top text-sm text-gray-700">{{ hospital.avg_response_time }} min</td>
-              <td class="px-4 py-4 align-top text-sm text-gray-700">{{ formatDateTime(hospital.last_activity) }}</td>
+              <td class="px-4 py-4 align-top text-sm font-semibold">
+                <span v-if="hospital.critical_requests_count > 0" class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-700">
+                  {{ hospital.critical_requests_count }}
+                </span>
+                <span v-else class="text-gray-900">0</span>
+              </td>
+              <td class="px-4 py-4 align-top text-sm font-semibold" :class="responseTimeClass(hospital.avg_response_time)">{{ hospital.avg_response_time }} min</td>
+              <td class="px-4 py-4 align-top text-sm">
+                <span v-if="hospital.last_activity" class="text-gray-700">{{ formatDateTime(hospital.last_activity) }}</span>
+                <span v-else class="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">No recent activity</span>
+              </td>
               <td class="px-4 py-4 align-top">
                 <div class="flex flex-wrap justify-end gap-2">
                   <button class="action-button border-gray-200 text-gray-700 hover:bg-gray-50" @click="openDetails(hospital)">View Details</button>
                   <button class="action-button border-blue-200 text-blue-700 hover:bg-blue-50" @click="openRequests(hospital)">View Requests</button>
                   <button class="action-button border-amber-200 text-amber-700 hover:bg-amber-50" @click="openAction('alert', hospital)">Send Alert</button>
-                  <button class="action-button" :class="hospital.disabled ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'border-red-200 text-red-700 hover:bg-red-50'" @click="openAction('toggle', hospital)">
-                    {{ hospital.disabled ? 'Enable Hospital' : 'Disable Hospital' }}
+                  <span v-if="!hospital.disabled" class="mx-0.5 h-7 w-px self-center bg-red-200"></span>
+                  <button
+                    class="action-button"
+                    :class="hospital.disabled ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'border-red-300 text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-200'"
+                    @click="openAction('toggle', hospital)"
+                  >
+                    <span v-if="!hospital.disabled" class="mr-1">⚠️</span>{{ hospital.disabled ? 'Enable Hospital' : 'Disable Hospital' }}
                   </button>
                 </div>
               </td>
@@ -389,6 +435,7 @@ const toast = ref({ message: '', type: 'success' });
 const refreshCountdown = ref(45);
 const highlightState = ref({ changedIds: [], criticalIds: [] });
 const previousSnapshot = ref(new Map());
+const filtersCollapsed = ref(true);
 
 const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -399,6 +446,22 @@ let filterDebounce = null;
 let suppressFilterWatch = false;
 
 const hasActiveFilters = computed(() => Object.values(filters.value).some((value) => `${value}`.trim() !== ''));
+
+const statusOverview = computed(() => hospitals.value.reduce(
+  (acc, hospital) => {
+    const status = String(hospital.operational_status || '').toLowerCase();
+    if (status === 'active') {
+      acc.active += 1;
+    } else if (status === 'critical') {
+      acc.critical += 1;
+    } else {
+      acc.idle += 1;
+    }
+
+    return acc;
+  },
+  { active: 0, idle: 0, critical: 0 },
+));
 
 const metricCards = computed(() => [
   {
@@ -441,6 +504,7 @@ const metricCards = computed(() => [
     key: 'avg',
     label: 'Avg Response Time',
     value: `${summary.value.avg_response_time} min`,
+    valueClass: responseTimeClass(summary.value.avg_response_time),
     detail: 'Coordination speed',
     tooltip: 'Average response time reflects how quickly hospital activity is acknowledged across the network.',
     shellClass: 'border-amber-200 bg-amber-50',
@@ -628,6 +692,15 @@ const showToast = (message, type = 'success') => {
 
 const statusIcon = (status) => (status === 'critical' ? '🔴' : status === 'active' ? '🟢' : '🟡');
 const statusBadgeClass = (status) => (status === 'critical' ? 'bg-red-100 text-red-700' : status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700');
+const responseTimeClass = (value) => {
+  const minutes = Number(value);
+
+  if (!Number.isFinite(minutes)) return 'text-gray-700';
+  if (minutes < 60) return 'text-emerald-700';
+  if (minutes <= 90) return 'text-amber-700';
+
+  return 'text-red-700';
+};
 const rowHighlightClass = (hospital) => {
   if (highlightState.value.criticalIds.includes(hospital.id)) return 'bg-red-50';
   if (highlightState.value.changedIds.includes(hospital.id)) return 'bg-blue-50';
@@ -635,7 +708,7 @@ const rowHighlightClass = (hospital) => {
 };
 
 const formatDateTime = (value) => {
-  if (!value) return 'No recent activity';
+  if (!value) return '';
   return new Date(value).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
 

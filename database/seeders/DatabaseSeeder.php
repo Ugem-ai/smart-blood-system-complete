@@ -21,6 +21,12 @@ class DatabaseSeeder extends Seeder
         $this->seedAdmin();
         $this->seedHospitalDemo();
         $this->seedDonorDemo();
+
+        $this->call([
+            ChapterSeeder::class,
+            ChapterInventorySeeder::class,
+            ChapterApiKeySeeder::class,
+        ]);
     }
 
     private function seedAdmin(): void

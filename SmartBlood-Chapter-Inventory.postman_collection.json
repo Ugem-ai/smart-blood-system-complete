@@ -1,0 +1,236 @@
+{
+  "info": {
+    "name": "SmartBlood Chapter Inventory",
+    "_postman_id": "6dcecb26-b2f0-4a5f-a5a9-b2e4a2bd4f3b",
+    "description": "Manual end-to-end API checks for Chapter Inventory management.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": "{{base_url}}/api/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Token exists', function () { pm.expect(json.data.token).to.be.a('string').and.not.empty; });",
+              "pm.collectionVariables.set('token', json.data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Get all chapters",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/api/admin/chapters"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Response has chapters array', function () { pm.expect(json.data.chapters).to.be.an('array'); });",
+              "if (json.data.chapters.length > 0) { pm.collectionVariables.set('chapter_id', json.data.chapters[0].id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Chapter card click -> inventory load",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/api/admin/chapters/{{chapter_id}}/inventory"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Inventory array exists', function () { pm.expect(json.data.inventory).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Recommend sources",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/api/admin/inventory/recommendations?blood_type=O%2B&units=2&destination_chapter_id=1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Recommendations exist in response', function () { pm.expect(json.data.recommended_sources || json.data).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Transfer submit",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"source_chapter_id\": 2,\n  \"destination_chapter_id\": 1,\n  \"blood_type\": \"O+\",\n  \"component_type\": \"Whole Blood\",\n  \"units_requested\": 2,\n  \"priority\": \"urgent\",\n  \"reason\": \"Critical shortage at Cavite chapter\"\n}"
+        },
+        "url": "{{base_url}}/api/admin/transfers"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('Transfer id exists', function () { pm.expect(json.data.id).to.be.a('number'); });",
+              "pm.collectionVariables.set('transfer_id', json.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Generate API key",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"label\": \"Test Key\"\n}"
+        },
+        "url": "{{base_url}}/api/admin/chapters/1/api-keys"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('Plain text key exists once', function () { pm.expect(json.data.plain_text_key).to.be.a('string').and.not.empty; });",
+              "pm.collectionVariables.set('chapter_api_key', json.data.plain_text_key);",
+              "pm.collectionVariables.set('key_id', json.data.key.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Chapter sync using API key",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-KEY", "value": "{{chapter_api_key}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"blood_type\": \"O+\",\n  \"component_type\": \"Whole Blood\",\n  \"units_available\": 15,\n  \"status\": \"adequate\"\n}"
+        },
+        "url": "{{base_url}}/api/chapters/inventory/sync"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Sync success message exists', function () { pm.expect(json.message).to.be.a('string').and.not.empty; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Revoke API key",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/api/admin/chapters/1/api-keys/{{key_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Revoke message exists', function () { pm.expect(json.message).to.be.a('string').and.not.empty; });"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "email", "value": "test@example.com" },
+    { "key": "password", "value": "password" },
+    { "key": "token", "value": "" },
+    { "key": "chapter_id", "value": "1" },
+    { "key": "transfer_id", "value": "" },
+    { "key": "chapter_api_key", "value": "" },
+    { "key": "key_id", "value": "" }
+  ]
+}

@@ -110,7 +110,11 @@
 
             <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <div class="summary-tile"><span class="summary-label">Blood Type + Component</span><span class="summary-value">{{ requestContext.blood_type }} · {{ requestContext.component }}</span></div>
-              <div class="summary-tile"><span class="summary-label">Time Remaining</span><span class="summary-value">{{ countdownLabel }}</span></div>
+              <div class="summary-tile">
+                <span class="summary-label">Time Remaining</span>
+                <span v-if="isRequestExpired" class="mt-3 inline-flex w-fit rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-red-700">Expired</span>
+                <span v-else class="summary-value">{{ countdownLabel }}</span>
+              </div>
               <div class="summary-tile"><span class="summary-label">Matching Phase</span><span class="summary-value">{{ matchingState.phase_label }}</span></div>
             </div>
 
@@ -150,6 +154,12 @@
           <div v-for="card in realTimeCards" :key="card.key" class="rounded-[2rem] border p-5 shadow-sm" :class="card.shellClass">
             <p class="text-sm font-semibold text-gray-700">{{ card.label }}</p>
             <p class="mt-4 text-3xl font-black tracking-tight text-gray-950">{{ card.value }}</p>
+            <div v-if="card.progress !== undefined" class="mt-3">
+              <div class="h-2 overflow-hidden rounded-full bg-white/80">
+                <div class="h-full rounded-full transition-all" :class="card.progressClass" :style="{ width: `${card.progress}%` }"></div>
+              </div>
+              <p class="mt-1 text-xs font-semibold text-gray-600">{{ card.progress.toFixed(2) }}% fulfilled</p>
+            </div>
           </div>
         </div>
 
@@ -173,9 +183,14 @@
               </div>
 
               <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
-                <div v-for="phase in flowPhases" :key="phase.label" class="rounded-3xl border p-4" :class="phase.active ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'">
+                <div
+                  v-for="phase in flowPhases"
+                  :key="phase.label"
+                  class="rounded-3xl border p-4 transition"
+                  :class="phase.active ? 'border-red-200 border-l-4 border-l-red-600 bg-red-50' : 'border-gray-200 bg-gray-50 opacity-55'"
+                >
                   <p class="text-xs font-black uppercase tracking-wide" :class="phase.active ? 'text-red-700' : 'text-gray-400'">Phase</p>
-                  <p class="mt-2 font-semibold text-gray-950">{{ phase.label }}</p>
+                  <p class="mt-2 text-gray-950" :class="phase.active ? 'font-black' : 'font-semibold'">{{ phase.label }}</p>
                 </div>
               </div>
             </div>
@@ -198,7 +213,7 @@
                       <span class="text-xs font-bold uppercase tracking-wide text-gray-500">{{ entry.timestamp ? formatDateTime(entry.timestamp) : 'Pending' }}</span>
                     </div>
                     <p class="mt-2 text-sm text-gray-600">Trigger condition: {{ entry.trigger_condition }}</p>
-                    <p class="mt-2 text-xs font-semibold text-gray-500">Radius {{ entry.radius_km }} km · T+{{ entry.offset_minutes ?? 0 }} min</p>
+                    <p class="mt-2 text-xs font-semibold text-gray-500">Radius {{ entry.radius_km }} km · {{ formatTimelineOffset(entry.offset_minutes) }}</p>
                   </div>
                 </div>
               </div>
@@ -233,10 +248,10 @@
               </div>
             </div>
 
-            <div class="rounded-[2rem] border border-gray-200 bg-gray-950 p-6 text-white shadow-sm">
-              <p class="text-xs font-black uppercase tracking-[0.2em] text-red-300">Transparency Notes</p>
-              <h3 class="mt-2 text-xl font-black">Why this dashboard exists</h3>
-              <ul class="mt-4 space-y-3 text-sm text-gray-200">
+            <div class="rounded-[2rem] border border-gray-200 border-l-4 border-l-gray-300 bg-gray-50 p-6 shadow-sm">
+              <p class="text-xs font-black uppercase tracking-[0.2em] text-gray-500">Transparency Notes</p>
+              <h3 class="mt-2 text-xl font-black text-gray-950">Why this dashboard exists</h3>
+              <ul class="mt-4 space-y-3 text-sm text-gray-700">
                 <li>The algorithm is observable rather than opaque.</li>
                 <li>Every escalation is timestamped and justified.</li>
                 <li>Admins can intervene without losing the audit trail.</li>
@@ -473,11 +488,23 @@ const matchingState = computed(() => dashboard.value?.matching_state || {
 });
 
 const realTimeCards = computed(() => [
-  { key: 'phase', label: 'Matching Phase', value: matchingState.value.phase_label, shellClass: 'border-blue-200 bg-blue-50' },
-  { key: 'radius', label: 'Active Radius', value: `${matchingState.value.active_radius_km} km`, shellClass: 'border-amber-200 bg-amber-50' },
-  { key: 'notified', label: 'Total Donors Notified', value: matchingState.value.total_donors_notified, shellClass: 'border-red-200 bg-red-50' },
+  {
+    key: 'time_remaining',
+    label: 'Time Remaining',
+    value: isRequestExpired.value ? 'Expired' : countdownLabel.value,
+    shellClass: isRequestExpired.value ? 'border-red-200 bg-rose-50' : 'border-gray-200 bg-gray-50',
+  },
+  { key: 'radius', label: 'Active Radius', value: `${matchingState.value.active_radius_km} km`, shellClass: 'border-gray-200 bg-gray-50' },
+  { key: 'notified', label: 'Total Donors Notified', value: matchingState.value.total_donors_notified, shellClass: 'border-gray-200 bg-gray-50' },
   { key: 'response', label: 'Response Rate', value: `${matchingState.value.response_rate_percentage.toFixed(2)}%`, shellClass: 'border-emerald-200 bg-emerald-50' },
-  { key: 'accepted', label: 'Accepted vs Required', value: `${matchingState.value.accepted_donors}/${matchingState.value.required_units}`, shellClass: 'border-gray-200 bg-gray-50' },
+  {
+    key: 'accepted',
+    label: 'Accepted vs Required',
+    value: `${matchingState.value.accepted_donors}/${matchingState.value.required_units}`,
+    shellClass: 'border-emerald-200 bg-emerald-50',
+    progress: acceptedVsRequiredPercent.value,
+    progressClass: acceptedVsRequiredPercent.value >= 100 ? 'bg-emerald-500' : 'bg-red-500',
+  },
 ]);
 
 const countdownLabel = computed(() => {
@@ -487,6 +514,18 @@ const countdownLabel = computed(() => {
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
   return `${hours}h ${minutes}m ${seconds}s`;
+});
+
+const isRequestExpired = computed(() => {
+  if (requestCountdown.value === null || requestCountdown.value === undefined) return false;
+  return Number(requestCountdown.value) <= 0;
+});
+
+const acceptedVsRequiredPercent = computed(() => {
+  const required = Number(matchingState.value.required_units || 0);
+  const accepted = Number(matchingState.value.accepted_donors || 0);
+  if (required <= 0) return 0;
+  return Math.max(0, Math.min(100, (accepted / required) * 100));
 });
 
 const syncStatusLabel = computed(() => {
@@ -689,6 +728,18 @@ const formatDateTime = (value) => {
     hour: 'numeric',
     minute: '2-digit',
   });
+};
+
+const formatTimelineOffset = (offsetMinutes) => {
+  const numeric = Number(offsetMinutes ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 'T+0s';
+
+  if (numeric < 1) {
+    const seconds = Math.max(1, Math.round(numeric * 60));
+    return `T+${seconds}s`;
+  }
+
+  return `T+${numeric.toFixed(2)} min`;
 };
 
 const showToast = (message, type = 'success') => {

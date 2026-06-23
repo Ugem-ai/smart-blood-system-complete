@@ -59,17 +59,26 @@
             <h3 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Advanced Filter Panel</h3>
             <p class="mt-1 text-sm text-gray-500">Turn donor records into match-ready operational views.</p>
           </div>
-          <button
-            v-if="hasActiveFilters"
-            type="button"
-            class="self-start rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
-            @click="resetFilters"
-          >
-            Reset filters
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="self-start rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              @click="filtersCollapsed = !filtersCollapsed"
+            >
+              {{ filtersCollapsed ? 'Show Filters' : 'Hide Filters' }}
+            </button>
+            <button
+              v-if="hasActiveFilters"
+              type="button"
+              class="self-start rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+              @click="resetFilters"
+            >
+              Reset filters
+            </button>
+          </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div v-show="!filtersCollapsed" class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label class="block">
             <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Search</span>
             <input
@@ -242,17 +251,20 @@
                 <div class="space-y-1">
                   <div class="flex items-center gap-2">
                     <span class="font-semibold text-gray-900">{{ donor.reliability_score }}%</span>
-                    <span class="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide" :class="reliabilityBadgeClass(donor.reliability_band)">
-                      {{ donor.reliability_band }}
+                    <span class="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide" :class="reliabilityBadgeClass(donor.reliability_score)">
+                      {{ reliabilityTierLabel(donor.reliability_score) }}
                     </span>
                   </div>
                   <div class="h-2 w-28 rounded-full bg-gray-100">
-                    <div class="h-2 rounded-full" :class="reliabilityBarClass(donor.reliability_band)" :style="{ width: `${Math.min(100, donor.reliability_score || 0)}%` }"></div>
+                    <div class="h-2 rounded-full" :class="reliabilityBarClass(donor.reliability_score)" :style="{ width: `${Math.min(100, donor.reliability_score || 0)}%` }"></div>
                   </div>
                 </div>
               </td>
 
-              <td class="px-4 py-4 align-top text-sm text-gray-700">{{ formatDate(donor.last_donation_date) }}</td>
+              <td class="px-4 py-4 align-top text-sm text-gray-700">
+                <span v-if="donor.last_donation_date">{{ formatDate(donor.last_donation_date) }}</span>
+                <span v-else class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">No record</span>
+              </td>
 
               <td class="px-4 py-4 align-top">
                 <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide" :class="availabilityBadgeClass(donor.availability_status)">
@@ -260,14 +272,17 @@
                 </span>
               </td>
 
-              <td class="px-4 py-4 align-top text-sm text-gray-700">{{ donor.distance == null ? 'Unknown' : `${donor.distance} km` }}</td>
+              <td class="px-4 py-4 align-top text-sm text-gray-700">
+                <span v-if="donor.distance != null">{{ donor.distance }} km</span>
+                <span v-else class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">Unknown</span>
+              </td>
 
               <td class="px-4 py-4 align-top">
                 <span
                   class="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em]"
-                  :class="donor.match_ready ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'"
+                  :class="matchReadyBadgeClass(donor.match_ready)"
                 >
-                  {{ donor.match_ready ? 'Match Ready' : 'Not Ready' }}
+                  {{ matchReadyLabel(donor.match_ready) }}
                 </span>
               </td>
 
@@ -276,7 +291,7 @@
                   <button class="action-button border-gray-200 text-gray-700 hover:bg-gray-50" @click="openProfile(donor)">View Profile</button>
                   <button class="action-button border-blue-200 text-blue-700 hover:bg-blue-50" @click="openActionModal('notify', donor)">Notify Donor</button>
                   <button class="action-button border-red-200 text-red-700 hover:bg-red-50" @click="openActionModal('suspend', donor)">Suspend Donor</button>
-                  <button class="action-button border-amber-200 text-amber-700 hover:bg-amber-50" @click="openActionModal('prioritize', donor)">Prioritize Donor</button>
+                  <button class="action-button border-red-600 bg-red-600 text-white hover:bg-red-700" @click="openActionModal('prioritize', donor)">Prioritize Donor</button>
                 </div>
               </td>
             </tr>
@@ -487,6 +502,7 @@ const profileModal = ref({ open: false, loading: false, data: null, donorId: nul
 const confirmModal = ref({ open: false, loading: false, action: '', donor: null, title: '', message: '' });
 const toast = ref({ message: '', type: 'success' });
 const refreshCountdown = ref(45);
+const filtersCollapsed = ref(true);
 
 const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -505,10 +521,10 @@ const metricCards = computed(() => [
     value: summary.value.total_donors,
     detail: 'Registered donors',
     tooltip: 'View the full donor pool registered in the platform.',
-    shellClass: 'border-blue-200 bg-blue-50',
-    focusClass: 'focus:ring-blue-200/80',
-    activeClass: 'border-blue-300 ring-2 ring-blue-200 shadow-md',
-    iconShellClass: 'text-blue-700',
+    shellClass: 'border-gray-200 bg-gray-50',
+    focusClass: 'focus:ring-gray-200/80',
+    activeClass: 'border-gray-300 ring-2 ring-gray-200 shadow-md',
+    iconShellClass: 'text-gray-700',
     icon: iconMarkup('users'),
   },
   {
@@ -529,10 +545,10 @@ const metricCards = computed(() => [
     value: summary.value.high_reliability_donors,
     detail: 'Trusted high responders',
     tooltip: 'High reliability donors consistently respond and support emergency matching performance.',
-    shellClass: 'border-amber-200 bg-amber-50',
-    focusClass: 'focus:ring-amber-200/80',
-    activeClass: 'border-amber-300 ring-2 ring-amber-200 shadow-md',
-    iconShellClass: 'text-amber-700',
+    shellClass: 'border-red-200 bg-red-50',
+    focusClass: 'focus:ring-red-200/80',
+    activeClass: 'border-red-300 ring-2 ring-red-200 shadow-md',
+    iconShellClass: 'text-red-700',
     icon: iconMarkup('star'),
   },
   {
@@ -541,10 +557,10 @@ const metricCards = computed(() => [
     value: summary.value.inactive_donors,
     detail: 'Currently unavailable',
     tooltip: 'Inactive donors are currently unavailable for operational matching and need re-engagement or review.',
-    shellClass: 'border-rose-200 bg-rose-50',
-    focusClass: 'focus:ring-rose-200/80',
-    activeClass: 'border-rose-300 ring-2 ring-rose-200 shadow-md',
-    iconShellClass: 'text-rose-700',
+    shellClass: 'border-amber-200 bg-amber-50',
+    focusClass: 'focus:ring-amber-200/80',
+    activeClass: 'border-amber-300 ring-2 ring-amber-200 shadow-md',
+    iconShellClass: 'text-amber-700',
     icon: iconMarkup('inactive'),
   },
 ]);
@@ -735,22 +751,46 @@ const formatCoordinates = (coordinates) => {
   return `${coordinates.latitude}, ${coordinates.longitude}`;
 };
 
-const reliabilityBadgeClass = (band) => {
-  if (band === 'high') return 'bg-emerald-100 text-emerald-700';
-  if (band === 'medium') return 'bg-amber-100 text-amber-700';
+const reliabilityTierLabel = (score) => {
+  const numeric = Number(score || 0);
+  if (numeric >= 71) return 'High';
+  if (numeric >= 41) return 'Medium';
+  return 'Low';
+};
+
+const reliabilityBadgeClass = (score) => {
+  const numeric = Number(score || 0);
+  if (numeric >= 71) return 'bg-emerald-100 text-emerald-700';
+  if (numeric >= 41) return 'bg-amber-100 text-amber-700';
   return 'bg-red-100 text-red-700';
 };
 
-const reliabilityBarClass = (band) => {
-  if (band === 'high') return 'bg-emerald-500';
-  if (band === 'medium') return 'bg-amber-500';
+const reliabilityBarClass = (score) => {
+  const numeric = Number(score || 0);
+  if (numeric >= 71) return 'bg-emerald-500';
+  if (numeric >= 41) return 'bg-amber-500';
   return 'bg-red-500';
 };
 
 const availabilityBadgeClass = (status) => {
-  if (status === 'available') return 'bg-emerald-100 text-emerald-700';
-  if (status === 'busy') return 'bg-amber-100 text-amber-700';
-  return 'bg-red-100 text-red-700';
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'available') return 'bg-emerald-100 text-emerald-700';
+  if (normalized === 'busy') return 'bg-amber-100 text-amber-700';
+  if (normalized === 'inactive' || normalized === 'unavailable') return 'bg-gray-100 text-gray-600';
+  if (normalized === 'suspended') return 'bg-red-100 text-red-700';
+  return 'bg-gray-100 text-gray-600';
+};
+
+const matchReadyLabel = (value) => {
+  if (value === true) return 'Ready';
+  if (value === false) return 'Not Ready';
+  return 'Unknown';
+};
+
+const matchReadyBadgeClass = (value) => {
+  if (value === true) return 'bg-emerald-100 text-emerald-700';
+  if (value === false) return 'bg-red-100 text-red-700';
+  return 'bg-gray-100 text-gray-600';
 };
 
 const setupPolling = () => {
