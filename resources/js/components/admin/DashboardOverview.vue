@@ -65,7 +65,7 @@
         <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex h-32 items-end gap-2">
+        <div v-else class="flex h-32 items-end gap-2" style="height: 128px;">
           <div
             v-for="(value, index) in requestTrend"
             :key="`req-${index}`"
@@ -131,7 +131,7 @@
           </canvas>
         </div>
         <!-- Legend -->
-        <ul class="flex-1 space-y-2">
+        <ul class="w-full space-y-2 lg:max-w-xs">
           <li
             v-for="item in bloodTypeLegend"
             :key="item.type"
