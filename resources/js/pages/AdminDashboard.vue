@@ -41,7 +41,7 @@ const modules = [
   { id: 'matching', label: 'PAST-Match Monitoring', icon: '🎯', section: 'Command Center' },
   { id: 'donors', label: 'Donor Management', icon: '🧑', section: 'Network Management' },
   { id: 'hospitals', label: 'Hospital Management', icon: '🏥', section: 'Network Management' },
-  { id: 'inventory-sync', label: 'Chapter Inventory', icon: '⇄', section: 'Network Management' },
+  { id: 'inventory-sync', label: 'Chapter Inventory', icon: '📦', section: 'Network Management' },
   { id: 'notifications', label: 'Notifications', icon: '🔔', section: 'Oversight' },
   { id: 'analytics', label: 'Analytics', icon: '📈', section: 'Oversight' },
   { id: 'logs', label: 'Audit Logs', icon: '🧾', section: 'Oversight' },
