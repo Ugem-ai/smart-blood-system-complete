@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-8">
     <AdminPageFrame
       title="Blood Inventory"
       description="Manage blood inventory for PRC Cavite Chapter"
@@ -63,41 +63,41 @@
           <p class="mt-1 text-xs text-gray-500">Search and filter blood inventory by blood type, component, and status.</p>
         </div>
 
-        <div class="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+        <div class="grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto]">
           <label class="block">
-            <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Blood Type</span>
-            <select v-model="filters.blood_type" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900">
+            <span class="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Blood Type</span>
+            <select v-model="filters.blood_type" class="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm">
               <option value="">All Types</option>
               <option v-for="type in bloodTypes" :key="type" :value="type">{{ type }}</option>
             </select>
           </label>
           <label class="block">
-            <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Component</span>
-            <select v-model="filters.component" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900">
+            <span class="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Component</span>
+            <select v-model="filters.component" class="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm">
               <option value="">All Components</option>
               <option v-for="type in componentTypes" :key="type" :value="type">{{ type }}</option>
             </select>
           </label>
           <label class="block">
-            <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Status</span>
-            <select v-model="filters.status" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900">
+            <span class="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Status</span>
+            <select v-model="filters.status" class="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm">
               <option value="">All Status</option>
               <option value="adequate">Adequate</option>
               <option value="low">Low</option>
               <option value="critical">Critical</option>
             </select>
           </label>
-          <button class="self-end rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700" @click="applyFilters">
+          <button class="self-end rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700" @click="applyFilters">
             Search
           </button>
         </div>
       </section>
 
       <!-- Table -->
-      <section class="space-y-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section class="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
         <div>
           <h3 class="text-sm font-black uppercase tracking-[0.16em] text-gray-700">Current Inventory</h3>
-          <p class="mt-1 text-xs text-gray-500">{{ inventoryRows.length }} blood type(s) in stock</p>
+          <p class="mt-2 text-sm text-gray-500">{{ inventoryRows.length }} blood type(s) in stock</p>
         </div>
 
         <div v-if="!inventoryRows.length" class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center">
@@ -144,7 +144,7 @@
       </section>
 
       <!-- Alerts -->
-      <section v-if="alertItems.length > 0" class="space-y-5 rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+      <section v-if="alertItems.length > 0" class="space-y-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
         <div>
           <h3 class="text-sm font-black uppercase tracking-[0.16em] text-amber-900">Inventory Alerts</h3>
           <p class="mt-1 text-xs text-amber-700">{{ alertItems.length }} blood type(s) require attention</p>
@@ -169,7 +169,7 @@
       </section>
 
       <!-- Recent Adjustments -->
-      <section v-if="recentAdjustments.length > 0" class="space-y-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section v-if="recentAdjustments.length > 0" class="space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
         <div>
           <h3 class="text-sm font-black uppercase tracking-[0.16em] text-gray-700">Recent Inventory Adjustments</h3>
           <p class="mt-1 text-xs text-gray-500">Latest stock additions and deductions</p>
