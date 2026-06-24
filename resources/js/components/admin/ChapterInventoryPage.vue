@@ -124,8 +124,10 @@
                 <td class="px-4 py-3 text-gray-700">{{ row.component_type || '—' }}</td>
                 <td class="px-4 py-3 text-center font-bold text-gray-900">{{ row.units_available }}</td>
                 <td class="px-4 py-3 align-middle">
-                  <span class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] whitespace-nowrap h-6" :class="getStatusBadgeClass(row)">
-                    {{ getStatusText(row) }}
+                  <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold whitespace-nowrap', getStatusBadgeClass(row)]">
+                    <span :class="['w-3 h-3 rounded-full shrink-0', getStatusDotClass(row)]" aria-hidden="true"></span>
+                    <span class="text-sm leading-none">{{ getStatusText(row) }}</span>
+                    <span :class="['ml-1 rounded-full bg-white/80 px-2 py-0.5 text-xs font-black', getStatusCountTextClass(row)]">{{ Number(row.units_available) || 0 }}</span>
                   </span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ formatDateTime(row.last_synced_at || row.updated_at) }}</td>
@@ -256,6 +258,8 @@ const alertItems = computed(() => inventoryRows.value.filter(r => (Number(r.unit
 
 const getStatusText = row => { const u = Number(row.units_available) || 0; if (u <= 0) return 'Critical'; if (u <= 5) return 'Low'; return 'Adequate'; };
 const getStatusBadgeClass = row => { const u = Number(row.units_available) || 0; if (u <= 0) return 'bg-red-100 text-red-700'; if (u <= 5) return 'bg-amber-100 text-amber-700'; return 'bg-emerald-100 text-emerald-700'; };
+const getStatusDotClass = row => { const u = Number(row.units_available) || 0; if (u <= 0) return 'bg-red-600'; if (u <= 5) return 'bg-amber-500'; return 'bg-emerald-600'; };
+const getStatusCountTextClass = row => { const u = Number(row.units_available) || 0; if (u <= 0) return 'text-red-800'; if (u <= 5) return 'text-amber-700'; return 'text-emerald-700'; };
 
 const dismissError = () => { globalError.value.show = false; };
 const setGlobalError = (error, fallback) => { globalError.value = { show: true, message: error?.response?.data?.message || fallback || 'An error occurred' }; };
