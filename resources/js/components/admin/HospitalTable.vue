@@ -206,11 +206,7 @@
               </td>
               <td class="px-4 py-4 align-top text-sm text-gray-700">{{ hospital.location || 'Unknown location' }}</td>
               <td class="px-4 py-4 align-top">
-                <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold whitespace-nowrap', statusBadgeClass(hospital.operational_status)]">
-                  <span :class="['w-3 h-3 rounded-full shrink-0', statusDotClass(hospital.operational_status)]" aria-hidden="true"></span>
-                  <span class="text-sm leading-none">{{ hospital.operational_status }}</span>
-                  <span class="ml-1 rounded-full bg-white/80 px-2 py-0.5 text-xs font-black" :class="statusCountTextClass(hospital.operational_status)">{{ hospital.active_requests_count || 0 }}</span>
-                </span>
+                <StatusBadge :status="hospital.operational_status" :label="hospital.operational_status" :count="hospital.active_requests_count" />
               </td>
               <td class="px-4 py-4 align-top text-sm font-semibold text-gray-900">{{ hospital.active_requests_count }}</td>
               <td class="px-4 py-4 align-top text-sm font-semibold">
@@ -422,6 +418,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import api from '../../lib/api';
 import AdminPageFrame from './AdminPageFrame.vue';
+import StatusBadge from '../ui/StatusBadge.vue';
 
 const hospitals = ref([]);
 const loading = ref(false);

@@ -124,11 +124,7 @@
                 <td class="px-4 py-3 text-gray-700">{{ row.component_type || '—' }}</td>
                 <td class="px-4 py-3 text-center font-bold text-gray-900">{{ row.units_available }}</td>
                 <td class="px-4 py-3 align-middle">
-                  <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold whitespace-nowrap', getStatusBadgeClass(row)]">
-                    <span :class="['w-3 h-3 rounded-full shrink-0', getStatusDotClass(row)]" aria-hidden="true"></span>
-                    <span class="text-sm leading-none">{{ getStatusText(row) }}</span>
-                    <span :class="['ml-1 rounded-full bg-white/80 px-2 py-0.5 text-xs font-black', getStatusCountTextClass(row)]">{{ Number(row.units_available) || 0 }}</span>
-                  </span>
+                  <StatusBadge :status="getStatusText(row)" :label="getStatusText(row)" :count="row.units_available" />
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ formatDateTime(row.last_synced_at || row.updated_at) }}</td>
                 <td class="px-4 py-3 text-center">
@@ -214,6 +210,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import AdminPageFrame from './AdminPageFrame.vue';
+import StatusBadge from '../ui/StatusBadge.vue';
 import { useChapterInventory } from '../../composables/useChapterInventory';
 import api from '../../lib/api';
 
