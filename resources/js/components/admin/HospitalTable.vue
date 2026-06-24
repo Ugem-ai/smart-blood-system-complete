@@ -206,12 +206,11 @@
               </td>
               <td class="px-4 py-4 align-top text-sm text-gray-700">{{ hospital.location || 'Unknown location' }}</td>
               <td class="px-4 py-4 align-top">
-                <div class="flex flex-col items-center gap-1">
-                  <span class="text-xl" :class="statusIconClass(hospital.operational_status)">{{ statusIcon(hospital.operational_status) }}</span>
-                  <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide" :class="statusBadgeClass(hospital.operational_status)">
-                    {{ hospital.operational_status }}
-                  </span>
-                </div>
+                <span :class="['inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold whitespace-nowrap', statusBadgeClass(hospital.operational_status)]">
+                  <span :class="['w-3 h-3 rounded-full shrink-0', statusDotClass(hospital.operational_status)]" aria-hidden="true"></span>
+                  <span class="text-sm leading-none">{{ hospital.operational_status }}</span>
+                  <span class="ml-1 rounded-full bg-white/80 px-2 py-0.5 text-xs font-black" :class="statusCountTextClass(hospital.operational_status)">{{ hospital.active_requests_count || 0 }}</span>
+                </span>
               </td>
               <td class="px-4 py-4 align-top text-sm font-semibold text-gray-900">{{ hospital.active_requests_count }}</td>
               <td class="px-4 py-4 align-top text-sm font-semibold">
@@ -696,6 +695,8 @@ const showToast = (message, type = 'success') => {
 const statusIcon = (status) => (status === 'critical' ? '🔴' : status === 'active' ? '🟢' : '🟡');
 const statusIconClass = (status) => (status === 'critical' ? 'text-red-600' : status === 'active' ? 'text-emerald-600' : 'text-amber-600');
 const statusBadgeClass = (status) => (status === 'critical' ? 'bg-red-100 text-red-700' : status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700');
+const statusDotClass = (status) => (status === 'critical' ? 'bg-red-600' : status === 'active' ? 'bg-emerald-600' : 'bg-amber-500');
+const statusCountTextClass = (status) => (status === 'critical' ? 'text-red-800' : status === 'active' ? 'text-emerald-800' : 'text-amber-800');
 const responseTimeClass = (value) => {
   const minutes = Number(value);
 
