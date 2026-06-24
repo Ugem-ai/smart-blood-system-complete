@@ -123,8 +123,8 @@
                 <td class="px-4 py-3 font-bold text-gray-900">{{ row.blood_type }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ row.component_type || '—' }}</td>
                 <td class="px-4 py-3 text-center font-bold text-gray-900">{{ row.units_available }}</td>
-                <td class="px-4 py-3">
-                  <span class="rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide" :class="getStatusBadgeClass(row)">
+                <td class="px-4 py-3 align-middle">
+                  <span class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] whitespace-nowrap h-6" :class="getStatusBadgeClass(row)">
                     {{ getStatusText(row) }}
                   </span>
                 </td>
