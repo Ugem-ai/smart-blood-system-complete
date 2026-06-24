@@ -54,32 +54,6 @@
 
     <!-- Charts row -->
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <!-- Requests over time -->
-      <div class="admin-panel">
-        <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-900">Requests over time</h3>
-          <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500">
-            Last 7 periods
-          </span>
-        </div>
-        <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
-          Loading…
-        </div>
-        <div v-else class="flex h-32 items-end gap-2" style="height: 128px;">
-          <div
-            v-for="(value, index) in requestTrend"
-            :key="`req-${index}`"
-            class="flex flex-1 flex-col items-center gap-1"
-          >
-            <div
-              class="w-full rounded-t-sm bg-red-500/80 transition-all duration-300"
-              :style="{ height: `${barHeightPercent(value, requestTrend)}%`, minHeight: '6px' }"
-            />
-            <span class="text-[10px] text-gray-400">{{ index + 1 }}</span>
-          </div>
-        </div>
-      </div>
-
       <!-- Response rate trend -->
       <div class="admin-panel">
         <div class="mb-4 flex items-center justify-between">
@@ -106,100 +80,129 @@
           </div>
         </div>
       </div>
+
+      <!-- Blood type demand -->
+      <div class="admin-panel">
+        <div class="mb-5 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-900">Blood type demand</h3>
+          <span
+            v-if="loading"
+            class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500"
+          >
+            Loading…
+          </span>
+        </div>
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-center">
+          <!-- Donut -->
+          <div class="mx-auto w-full max-w-[200px] flex-shrink-0">
+            <canvas
+              ref="bloodTypeDemandCanvas"
+              aria-label="Donut chart showing blood type demand distribution"
+              role="img"
+            >
+              Blood type demand: {{ bloodTypeAriaText }}
+            </canvas>
+          </div>
+          <!-- Legend -->
+          <ul class="w-full space-y-2 lg:max-w-xs">
+            <li
+              v-for="item in bloodTypeLegend"
+              :key="item.type"
+              class="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2.5"
+            >
+              <div class="flex items-center gap-2.5">
+                <span
+                  class="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  :style="{ backgroundColor: item.color }"
+                />
+                <span class="text-sm font-semibold text-gray-800">{{ item.type }}</span>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-semibold text-gray-900">{{ item.percent }}%</p>
+                <p class="text-xs text-gray-400">{{ item.count }} {{ item.count === 1 ? 'request' : 'requests' }}</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
     </div>
 
-    <!-- Blood type demand -->
-    <div class="admin-panel">
-      <div class="mb-5 flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-900">Blood type demand</h3>
-        <span
-          v-if="loading"
-          class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500"
-        >
-          Loading…
-        </span>
-      </div>
-      <div class="flex flex-col gap-6 lg:flex-row lg:items-center">
-        <!-- Donut -->
-        <div class="mx-auto w-full max-w-[200px] flex-shrink-0">
-          <canvas
-            ref="bloodTypeDemandCanvas"
-            aria-label="Donut chart showing blood type demand distribution"
-            role="img"
-          >
-            Blood type demand: {{ bloodTypeAriaText }}
-          </canvas>
+    <!-- Requests over time and Activity feed row -->
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <!-- Requests over time -->
+      <div class="admin-panel">
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-900">Requests over time</h3>
+          <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500">
+            Last 7 periods
+          </span>
         </div>
-        <!-- Legend -->
-        <ul class="w-full space-y-2 lg:max-w-xs">
-          <li
-            v-for="item in bloodTypeLegend"
-            :key="item.type"
-            class="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2.5"
+        <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
+          Loading…
+        </div>
+        <div v-else class="flex h-32 items-end gap-2" style="height: 200px">
+          <div
+            v-for="(value, index) in requestTrend"
+            :key="`req-${index}`"
+            class="flex flex-1 flex-col items-center gap-1"
           >
-            <div class="flex items-center gap-2.5">
-              <span
-                class="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                :style="{ backgroundColor: item.color }"
-              />
-              <span class="text-sm font-semibold text-gray-800">{{ item.type }}</span>
+            <div
+              class="w-full rounded-t-sm bg-red-500/80 transition-all duration-300"
+              :style="{ height: `${barHeightPercent(value, requestTrend)}%`, minHeight: '6px' }"
+            />
+            <span class="text-[10px] text-gray-400">{{ index + 1 }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="admin-panel">
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-900">Recent activity feed</h3>
+          <button
+            type="button"
+            class="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
+            @click="loadOverview"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+
+        <div v-if="loading" class="py-8 text-center text-sm text-gray-400">
+          Loading activity…
+        </div>
+        <ul v-else class="space-y-2.5">
+          <li
+            v-for="entry in activityFeed"
+            :key="entry.id"
+            class="flex items-start gap-3 rounded-xl border border-gray-100 px-4 py-3"
+          >
+            <!-- Icon block -->
+            <div
+              class="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-sm"
+              :class="feedIconClass(entry.type)"
+            >
+              {{ feedIcon(entry.type) }}
             </div>
-            <div class="text-right">
-              <p class="text-sm font-semibold text-gray-900">{{ item.percent }}%</p>
-              <p class="text-xs text-gray-400">{{ item.count }} {{ item.count === 1 ? 'request' : 'requests' }}</p>
+            <!-- Content -->
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-semibold text-gray-900">{{ entry.title }}</p>
+              <p class="mt-0.5 text-xs text-gray-500">{{ entry.description }}</p>
+              <p class="mt-0.5 text-[10px] text-gray-400">{{ formatDateTime(entry.timestamp) }}</p>
             </div>
+            <!-- Badge -->
+            <span
+              class="mt-0.5 flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              :class="badgeClass(entry.type)"
+            >
+              {{ entry.type }}
+            </span>
+          </li>
+          <li v-if="activityFeed.length === 0" class="py-8 text-center text-sm text-gray-400">
+            No recent activity.
           </li>
         </ul>
       </div>
-    </div>
-
-    <!-- Activity feed -->
-    <div class="admin-panel">
-      <div class="mb-4 flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-900">Recent activity feed</h3>
-        <button
-          type="button"
-          class="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
-          @click="loadOverview"
-        >
-          ↻ Refresh
-        </button>
-      </div>
-
-      <div v-if="loading" class="py-8 text-center text-sm text-gray-400">
-        Loading activity…
-      </div>
-      <ul v-else class="space-y-2.5">
-        <li
-          v-for="entry in activityFeed"
-          :key="entry.id"
-          class="flex items-start gap-3 rounded-xl border border-gray-100 px-4 py-3"
-        >
-          <!-- Icon block -->
-          <div
-            class="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-sm"
-            :class="feedIconClass(entry.type)"
-          >
-            {{ feedIcon(entry.type) }}
-          </div>
-          <!-- Content -->
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-semibold text-gray-900">{{ entry.title }}</p>
-            <p class="mt-0.5 text-xs text-gray-500">{{ entry.description }}</p>
-            <p class="mt-0.5 text-[10px] text-gray-400">{{ formatDateTime(entry.timestamp) }}</p>
-          </div>
-          <!-- Badge -->
-          <span
-            class="mt-0.5 flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-            :class="badgeClass(entry.type)"
-          >
-            {{ entry.type }}
-          </span>
-        </li>
-        <li v-if="activityFeed.length === 0" class="py-8 text-center text-sm text-gray-400">
-          No recent activity.
-        </li>
-      </ul>
     </div>
   </AdminPageFrame>
 </template>

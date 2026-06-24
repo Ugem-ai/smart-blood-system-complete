@@ -1,65 +1,80 @@
 <template>
-  <AdminPageFrame
-    kicker="Decision Intelligence Layer"
-    title="PAST-Match Monitoring"
-    description="Real-time donor ranking, escalation tracking, and admin control for a transparent emergency matching engine."
-    badge="Algorithm decision visibility"
-  >
-    <template #actions>
-      <div class="flex w-full flex-col gap-3 xl:min-w-[38rem] xl:max-w-[42rem] sm:flex-row sm:items-center sm:justify-end">
-          <div class="relative min-w-0 flex-1 sm:min-w-[18rem]">
-            <label class="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500">Request Selector</label>
-            <button type="button" class="selector-button" @click="selectorOpen = !selectorOpen">
-              <span class="truncate text-left">{{ selectedRequestOption?.label || 'Select a recent request' }}</span>
-              <span class="text-xs text-gray-400">{{ selectorOpen ? 'Close' : 'Browse' }}</span>
-            </button>
-
-            <div v-if="selectorOpen" class="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl">
-              <div class="border-b border-gray-100 p-3">
-                <input v-model="selectorSearch" type="text" placeholder="Search by case, hospital, blood type, or status" class="selector-input" />
-              </div>
-              <div v-if="loadingOptions" class="space-y-2 p-3">
-                <div v-for="item in 4" :key="item" class="h-12 animate-pulse rounded-2xl bg-gray-100"></div>
-              </div>
-              <div v-else-if="selectorError" class="p-4 text-sm text-red-600">
-                <p><strong>Error:</strong> {{ selectorError }}</p>
-                <p class="mt-2 text-xs">requestOptions.length = {{ requestOptions.length }}</p>
-              </div>
-              <div v-else-if="requestOptions.length === 0" class="p-4 text-sm text-gray-500">
-                <p><strong>No recent requests found.</strong></p>
-                <p class="mt-2 text-xs text-gray-400">Backend returned 0 options. Check network tab in dev tools.</p>
-              </div>
-              <div v-else class="max-h-80 overflow-y-auto p-2">
-                <button v-for="option in requestOptions" :key="option.id" type="button" class="selector-option" :class="selectedRequestId === option.id ? 'bg-red-50 ring-1 ring-red-200' : ''" @click="selectRequest(option)">
-                  <div class="flex items-start justify-between gap-3">
-                    <div>
-                      <p class="font-semibold text-gray-900">{{ option.case_id || `Request #${option.id}` }}</p>
-                      <p class="mt-1 text-sm text-gray-500">{{ option.hospital_name }} · {{ option.blood_type }} · {{ option.status }}</p>
-                    </div>
-                    <span class="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide" :class="urgencyBadge(option.urgency_level)">{{ option.urgency_level || 'medium' }}</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-            <div class="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-600">
-              Last updated {{ formatDateTime(dashboard?.meta?.last_updated) }}
-            </div>
-            <div class="rounded-2xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.18em]" :class="syncStatusClass">
-              {{ syncStatusLabel }}
-            </div>
-            <button type="button" class="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!selectedRequestId || loadingAnalysis" @click="loadAnalysis(false)">Refresh</button>
-            <button type="button" class="inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition" :class="autoRefresh ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-200 bg-white text-gray-700'" @click="autoRefresh = !autoRefresh">
-              <span class="toggle-indicator" :class="autoRefresh ? 'bg-red-500' : 'bg-gray-300'"></span>
-              {{ autoRefresh ? `Polling every ${refreshCountdown}s` : 'Polling off' }}
-            </button>
-          </div>
+  <div class="space-y-6">
+    <!-- Header Panel -->
+    <div class="rounded-[2rem] border border-gray-700 bg-gray-900 p-6 text-white">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1">
+          <p class="text-xs font-bold uppercase tracking-[0.2em] text-red-400">Decision Intelligence Layer</p>
+          <h1 class="mt-2 text-3xl font-black">PAST-Match Monitoring</h1>
+          <p class="mt-3 text-sm text-gray-300">Real-time donor ranking, escalation tracking, and admin control for a transparent emergency matching engine.</p>
+        </div>
+        <div class="flex flex-shrink-0 items-center gap-3 text-right">
+          <button type="button" class="rounded-2xl border border-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-300 transition hover:border-gray-500 hover:bg-gray-800">
+            Algorithm decision visibility
+          </button>
+          <span class="text-gray-500">•</span>
+        </div>
       </div>
-    </template>
 
-    <div v-if="error" class="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-sm">
+      <!-- Controls Row -->
+      <div class="mt-6 flex items-center justify-between gap-4">
+        <div class="relative flex-1 sm:flex-none sm:min-w-[20rem]">
+          <button type="button" class="w-full rounded-2xl border border-gray-600 bg-gray-800 px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:border-gray-500 hover:bg-gray-700 text-left" @click="selectorOpen = !selectorOpen">
+            <span class="truncate">{{ selectedRequestOption?.label || 'BR-20260619-A2508 -De...' }}</span>
+          </button>
+
+          <div v-if="selectorOpen" class="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl">
+            <div class="border-b border-gray-100 p-3">
+              <input v-model="selectorSearch" type="text" placeholder="Search by case, hospital, blood type, or status" class="selector-input" />
+            </div>
+            <div v-if="loadingOptions" class="space-y-2 p-3">
+              <div v-for="item in 4" :key="item" class="h-12 animate-pulse rounded-2xl bg-gray-100"></div>
+            </div>
+            <div v-else-if="selectorError" class="p-4 text-sm text-red-600">
+              <p><strong>Error:</strong> {{ selectorError }}</p>
+              <p class="mt-2 text-xs">requestOptions.length = {{ requestOptions.length }}</p>
+            </div>
+            <div v-else-if="requestOptions.length === 0" class="p-4 text-sm text-gray-500">
+              <p><strong>No recent requests found.</strong></p>
+              <p class="mt-2 text-xs text-gray-400">Backend returned 0 options. Check network tab in dev tools.</p>
+            </div>
+            <div v-else class="max-h-80 overflow-y-auto p-2">
+              <button v-for="option in requestOptions" :key="option.id" type="button" class="selector-option" :class="selectedRequestId === option.id ? 'bg-red-50 ring-1 ring-red-200' : ''" @click="selectRequest(option)">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="font-semibold text-gray-900">{{ option.case_id || `Request #${option.id}` }}</p>
+                    <p class="mt-1 text-sm text-gray-500">{{ option.hospital_name }} · {{ option.blood_type }} · {{ option.status }}</p>
+                  </div>
+                  <span class="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide" :class="urgencyBadge(option.urgency_level)">{{ option.urgency_level || 'medium' }}</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button type="button" class="inline-flex items-center gap-2 rounded-2xl border border-emerald-500 bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-400 transition hover:bg-emerald-500/30" :class="autoRefresh ? '' : 'opacity-60'" @click="autoRefresh = !autoRefresh">
+            <span class="inline-block h-2 w-2 rounded-full" :class="autoRefresh ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'"></span>
+            {{ autoRefresh ? 'Live polling' : 'Polling off' }}
+          </button>
+          <button type="button" class="rounded-2xl border border-gray-600 bg-gray-800 px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:border-gray-500 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!selectedRequestId || loadingAnalysis" @click="loadAnalysis(false)">Refresh</button>
+        </div>
+      </div>
+
+      <!-- Status Row -->
+      <div class="mt-4 flex items-center gap-2 text-xs text-gray-400">
+        <span v-if="autoRefresh" class="flex items-center gap-1">
+          <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+          Polling every {{ refreshCountdown }}s
+        </span>
+        <span v-if="autoRefresh">•</span>
+        <span>Last updated {{ formatDateTime(dashboard?.meta?.last_updated) }}</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div>
+      <div v-if="error" class="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-sm">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p class="font-semibold text-red-800">Unable to load PAST-Match monitoring data.</p>
@@ -69,29 +84,29 @@
       </div>
     </div>
 
-    <div v-if="(dashboard?.notification_health || notificationHealth) && !(dashboard?.notification_health?.ready ?? notificationHealth?.ready)" class="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 shadow-sm mb-6">
-      <div class="flex flex-col gap-2">
-        <p class="font-semibold">Notification transport not configured</p>
-        <p>{{ (dashboard?.notification_health || notificationHealth)?.warnings?.join(' ') }}</p>
-      </div>
-    </div>
-
-    <div v-if="!selectedRequestId && !loadingAnalysis" class="rounded-[2rem] border border-dashed border-gray-300 bg-white p-16 text-center shadow-sm">
-      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-red-50 text-red-600">
-        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-current" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-      </div>
-      <h3 class="mt-5 text-xl font-bold text-gray-950">Select a request to analyze PAST-Match</h3>
-      <p class="mt-2 text-sm text-gray-500">Select a request to analyze how the PAST-Match algorithm ranks donors, prioritizes urgency, and adapts through escalation strategies in real time.</p>
-    </div>
-
-    <template v-else>
-      <div v-if="loadingAnalysis && !dashboard" class="space-y-6">
-        <div class="h-44 animate-pulse rounded-[2rem] bg-gray-100"></div>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <div v-for="card in 5" :key="card" class="h-28 animate-pulse rounded-[2rem] bg-gray-100"></div>
+      <div v-if="(dashboard?.notification_health || notificationHealth) && !(dashboard?.notification_health?.ready ?? notificationHealth?.ready)" class="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 shadow-sm mb-6">
+        <div class="flex flex-col gap-2">
+          <p class="font-semibold">Notification transport not configured</p>
+          <p>{{ (dashboard?.notification_health || notificationHealth)?.warnings?.join(' ') }}</p>
         </div>
-        <div class="h-96 animate-pulse rounded-[2rem] bg-gray-100"></div>
       </div>
+
+      <div v-if="!selectedRequestId && !loadingAnalysis" class="rounded-[2rem] border border-dashed border-gray-300 bg-white p-16 text-center shadow-sm">
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-red-50 text-red-600">
+          <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-current" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+        </div>
+        <h3 class="mt-5 text-xl font-bold text-gray-950">Select a request to analyze PAST-Match</h3>
+        <p class="mt-2 text-sm text-gray-500">Select a request to analyze how the PAST-Match algorithm ranks donors, prioritizes urgency, and adapts through escalation strategies in real time.</p>
+      </div>
+
+      <template v-else>
+        <div v-if="loadingAnalysis && !dashboard" class="space-y-6">
+          <div class="h-44 animate-pulse rounded-[2rem] bg-gray-100"></div>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div v-for="card in 5" :key="card" class="h-28 animate-pulse rounded-[2rem] bg-gray-100"></div>
+          </div>
+          <div class="h-96 animate-pulse rounded-[2rem] bg-gray-100"></div>
+        </div>
 
       <template v-else-if="dashboard">
         <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -416,14 +431,15 @@
           </div>
         </div>
       </template>
-    </template>
+      </template>
 
-    <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="translate-y-4 opacity-0" leave-active-class="transition duration-150 ease-in" leave-to-class="translate-y-4 opacity-0">
-      <div v-if="toast.message" class="fixed bottom-6 right-6 z-[70] rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-xl" :class="toast.type === 'error' ? 'bg-red-600' : 'bg-gray-900'">
-        {{ toast.message }}
-      </div>
-    </Transition>
-  </AdminPageFrame>
+      <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="translate-y-4 opacity-0" leave-active-class="transition duration-150 ease-in" leave-to-class="translate-y-4 opacity-0">
+        <div v-if="toast.message" class="fixed bottom-6 right-6 z-[70] rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-xl" :class="toast.type === 'error' ? 'bg-red-600' : 'bg-gray-900'">
+          {{ toast.message }}
+        </div>
+      </Transition>
+    </div>
+  </div>
 </template>
 
 <script setup>
