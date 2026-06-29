@@ -124,15 +124,23 @@
                 <td class="px-4 py-3 text-gray-700">{{ row.component_type || '—' }}</td>
                 <td class="px-4 py-3 text-center font-bold text-gray-900">{{ row.units_available }}</td>
                 <td class="px-4 py-3 align-middle">
-                    <StatusBadge :status="getStatusText(row)" :label="getStatusText(row)" :count="row.units_available" :showCount="false" />
+                  <StatusBadge :status="getStatusText(row)" :label="getStatusText(row)" :count="row.units_available" :showCount="false" />
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ formatDateTime(row.last_synced_at || row.updated_at) }}</td>
                 <td class="px-4 py-3 text-center">
                   <div class="flex items-center justify-center gap-2">
-                    <button @click="handleAddUnits(row)" class="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300" title="Add units">
+                    <button
+                      @click="openModal('add', row)"
+                      class="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300"
+                      title="Add units"
+                    >
                       +
                     </button>
-                    <button @click="handleRemoveUnits(row)" class="rounded-lg border border-orange-200 bg-orange-50 px-2 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100 hover:border-orange-300" title="Remove units">
+                    <button
+                      @click="openModal('remove', row)"
+                      class="rounded-lg border border-orange-200 bg-orange-50 px-2 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100 hover:border-orange-300"
+                      title="Remove units"
+                    >
                       −
                     </button>
                   </div>
@@ -203,6 +211,17 @@
         </div>
       </section>
     </a-spin>
+
+    <!-- Inventory Adjust Modal -->
+    <InventoryAdjustModal
+      :visible="modal.visible"
+      :mode="modal.mode"
+      :row="modal.row"
+      :loading="modal.loading"
+      :error="modal.error"
+      @confirm="handleModalConfirm"
+      @cancel="closeModal"
+    />
   </div>
 </template>
 
@@ -211,11 +230,20 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import AdminPageFrame from './AdminPageFrame.vue';
 import StatusBadge from '../ui/StatusBadge.vue';
+import InventoryAdjustModal from './InventoryAdjustModal.vue';
 import { useChapterInventory } from '../../composables/useChapterInventory';
 import api from '../../lib/api';
 
 const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const componentTypes = ['Whole Blood', 'Red Cells', 'Plasma', 'Platelets'];
+
+const props = defineProps({
+  chapterId: {
+    type: Number,
+    required: false,
+    default: 1, // Cavite Chapter
+  },
+});
 
 const { fetchChapterInventory } = useChapterInventory();
 
@@ -225,13 +253,26 @@ const recentAdjustments = ref([]);
 const autoRefreshHandle = ref(null);
 
 const loading = ref({ inventory: false });
-
 const filters = ref({ blood_type: '', component: '', status: '' });
-
 const globalError = ref({ show: false, message: '' });
 
-// PRC Cavite Chapter ID
-const CAVITE_CHAPTER_ID = 1;
+// Modal state
+const modal = ref({
+  visible: false,
+  mode: 'add',   // 'add' | 'remove'
+  row: null,
+  loading: false,
+  error: null, // Track error to keep modal open on failure
+});
+
+const openModal = (mode, row) => {
+  modal.value = { visible: true, mode, row, loading: false, error: null };
+};
+
+const closeModal = () => {
+  modal.value.visible = false;
+  modal.value.error = null;
+};
 
 const stats = computed(() => {
   const totalUnits = inventoryRows.value.reduce((s, r) => s + (Number(r.units_available) || 0), 0);
@@ -251,24 +292,34 @@ const lastUpdatedText = computed(() => {
   return formatDateTime(newest.last_synced_at || newest.updated_at);
 });
 
-const alertItems = computed(() => inventoryRows.value.filter(r => (Number(r.units_available) || 0) <= 5).sort((a, b) => (Number(a.units_available) || 0) - (Number(b.units_available) || 0)));
+const alertItems = computed(() =>
+  inventoryRows.value
+    .filter(r => (Number(r.units_available) || 0) <= 5)
+    .sort((a, b) => (Number(a.units_available) || 0) - (Number(b.units_available) || 0))
+);
 
-const getStatusText = row => { const u = Number(row.units_available) || 0; if (u <= 0) return 'Critical'; if (u <= 5) return 'Low'; return 'Adequate'; };
-const getStatusBadgeClass = row => { const u = Number(row.units_available) || 0; if (u <= 0) return 'bg-red-100 text-red-700'; if (u <= 5) return 'bg-amber-100 text-amber-700'; return 'bg-emerald-100 text-emerald-700'; };
-const getStatusDotClass = row => { const u = Number(row.units_available) || 0; if (u <= 0) return 'bg-red-600'; if (u <= 5) return 'bg-amber-500'; return 'bg-emerald-600'; };
-const getStatusCountTextClass = row => { const u = Number(row.units_available) || 0; if (u <= 0) return 'text-red-800'; if (u <= 5) return 'text-amber-700'; return 'text-emerald-700'; };
+const getStatusText = row => {
+  const u = Number(row.units_available) || 0;
+  if (u <= 0) return 'Critical';
+  if (u <= 5) return 'Low';
+  return 'Adequate';
+};
 
 const dismissError = () => { globalError.value.show = false; };
-const setGlobalError = (error, fallback) => { globalError.value = { show: true, message: error?.response?.data?.message || fallback || 'An error occurred' }; };
+const setGlobalError = (error, fallback) => {
+  globalError.value = { show: true, message: error?.response?.data?.message || fallback || 'An error occurred' };
+};
 
 const loadInventory = async () => {
   loading.value.inventory = true;
   try {
-    const response = await fetchChapterInventory(CAVITE_CHAPTER_ID, { blood_type: filters.value.blood_type, status: filters.value.status });
+    const response = await fetchChapterInventory(props.chapterId, {
+      blood_type: filters.value.blood_type,
+      status: filters.value.status,
+    });
     let items = response.inventory || [];
     if (filters.value.component) items = items.filter(r => r.component_type === filters.value.component);
     inventoryRows.value = items;
-    recentAdjustments.value = recentAdjustments.value.length ? recentAdjustments.value : [];
   } catch (err) {
     setGlobalError(err, 'Unable to load inventory data.');
   } finally {
@@ -277,68 +328,71 @@ const loadInventory = async () => {
 };
 
 const applyFilters = async () => { await loadInventory(); };
-const refreshInventory = async () => { await loadInventory(); message.success('Inventory refreshed'); };
+const refreshInventory = async () => {
+  await loadInventory();
+  message.success('Inventory refreshed');
+};
 
-const formatDateTime = value => { if (!value) return 'N/A'; const d = new Date(value); if (isNaN(d.getTime())) return 'N/A'; return d.toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+const formatDateTime = value => {
+  if (!value) return 'N/A';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return 'N/A';
+  return d.toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+
+// Single confirm handler for both add & remove
+const handleModalConfirm = async ({ units, reason }) => {
+  const { mode, row } = modal.value;
+  modal.value.loading = true;
+  modal.value.error = null; // Clear previous error
+
+  const current = Number(row.units_available) || 0;
+  const newUnits = mode === 'add' ? current + units : Math.max(0, current - units);
+
+  try {
+    const resp = await api.put(`/admin/chapters/${props.chapterId}/inventory/${row.id}`, { units_available: newUnits });
+    // Handle multiple possible response shapes from backend
+    const updated = resp.data?.data || resp.data?.inventory || resp.data;
+
+    if (updated && updated.id) {
+      inventoryRows.value = inventoryRows.value.map(r => r.id === updated.id ? updated : r);
+    } else {
+      // fallback: patch local row (if backend doesn't return updated object)
+      inventoryRows.value = inventoryRows.value.map(r =>
+        r.id === row.id ? { ...r, units_available: newUnits } : r
+      );
+    }
+
+    recentAdjustments.value.unshift({
+      id: Date.now(),
+      blood_type: row.blood_type,
+      component_type: row.component_type,
+      type: mode === 'add' ? 'addition' : 'removal',
+      units,
+      reason: reason || '',
+      date: new Date(),
+    });
+
+    message.success(`Successfully ${mode === 'add' ? 'added' : 'removed'} ${units} unit(s)`);
+    closeModal();
+  } catch (err) {
+    const errorMsg = err?.response?.data?.message || 'Failed to update inventory. Please try again.';
+    modal.value.error = errorMsg;
+    message.error(errorMsg);
+  } finally {
+    modal.value.loading = false;
+  }
+};
 
 onMounted(async () => {
   await loadInventory();
-  autoRefreshHandle.value = window.setInterval(async () => { await loadInventory(); }, 30000);
+  autoRefreshHandle.value = window.setInterval(loadInventory, 30000);
 });
-onUnmounted(() => { if (autoRefreshHandle.value) { window.clearInterval(autoRefreshHandle.value); autoRefreshHandle.value = null; } });
 
-// Handlers for adjusting inventory
-const handleAddUnits = async (row) => {
-  const input = window.prompt(`Add units to ${row.blood_type} (${row.component_type || '—'}). Enter number of units to add:`,'1');
-  if (!input) return;
-  const add = parseInt(input, 10);
-  if (Number.isNaN(add) || add <= 0) { message.error('Invalid unit amount'); return; }
-
-  const reason = window.prompt('Reason (optional):', 'Manual stock adjustment');
-
-  const newUnits = (Number(row.units_available) || 0) + add;
-  try {
-    const resp = await api.put(`/admin/chapters/${CAVITE_CHAPTER_ID}/inventory/${row.id}`, { units_available: newUnits });
-    const updated = resp.data?.data || null;
-    if (updated) {
-      inventoryRows.value = inventoryRows.value.map(r => r.id === updated.id ? updated : r);
-    } else {
-      // fallback: update local row
-      row.units_available = newUnits;
-    }
-
-    // prepend recent adjustment
-    recentAdjustments.value.unshift({ id: Date.now(), blood_type: row.blood_type, component_type: row.component_type, type: 'addition', units: add, reason: reason || '', date: new Date() });
-    message.success('Inventory updated');
-  } catch (err) {
-    message.error('Failed to update inventory');
+onUnmounted(() => {
+  if (autoRefreshHandle.value) {
+    window.clearInterval(autoRefreshHandle.value);
+    autoRefreshHandle.value = null;
   }
-};
-
-const handleRemoveUnits = async (row) => {
-  const input = window.prompt(`Remove units from ${row.blood_type} (${row.component_type || '—'}). Enter number of units to remove:`,'1');
-  if (!input) return;
-  const remove = parseInt(input, 10);
-  if (Number.isNaN(remove) || remove <= 0) { message.error('Invalid unit amount'); return; }
-
-  const reason = window.prompt('Reason (optional):', 'Manual stock adjustment');
-
-  const current = Number(row.units_available) || 0;
-  const newUnits = Math.max(0, current - remove);
-  try {
-    const resp = await api.put(`/admin/chapters/${CAVITE_CHAPTER_ID}/inventory/${row.id}`, { units_available: newUnits });
-    const updated = resp.data?.data || null;
-    if (updated) {
-      inventoryRows.value = inventoryRows.value.map(r => r.id === updated.id ? updated : r);
-    } else {
-      row.units_available = newUnits;
-    }
-
-    recentAdjustments.value.unshift({ id: Date.now(), blood_type: row.blood_type, component_type: row.component_type, type: 'removal', units: remove, reason: reason || '', date: new Date() });
-    message.success('Inventory updated');
-  } catch (err) {
-    message.error('Failed to update inventory');
-  }
-};
-
+});
 </script>
