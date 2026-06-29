@@ -184,7 +184,7 @@
               <th class="sticky top-0 z-10 bg-gray-50 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-gray-500">Last Donation Date</th>
               <th class="sticky top-0 z-10 bg-gray-50 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-gray-500">Availability Status</th>
               <th class="sticky top-0 z-10 bg-gray-50 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-gray-500">Distance</th>
-              <th class="sticky top-0 z-10 bg-gray-50 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-gray-500">Match Ready</th>
+              <th class="sticky top-0 z-10 min-w-[100px] bg-gray-50 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-gray-500">Match Ready</th>
               <th class="sticky top-0 z-10 bg-gray-50 px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-gray-500">Actions</th>
             </tr>
           </thead>
@@ -235,12 +235,12 @@
               </td>
 
               <td class="px-4 py-4 align-top">
-                <span class="inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700 ring-1 ring-red-200">{{ donor.blood_type }}</span>
+                <span class="inline-flex items-center justify-center rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700 ring-1 ring-red-200 whitespace-nowrap">{{ donor.blood_type }}</span>
               </td>
 
               <td class="px-4 py-4 align-top">
                 <span
-                  class="inline-flex rounded-full px-3 py-1 text-xs font-semibold"
+                  class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap"
                   :class="donor.eligibility_status?.is_eligible ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
                 >
                   {{ donor.eligibility_status?.label }}
@@ -251,7 +251,7 @@
                 <div class="space-y-1">
                   <div class="flex items-center gap-2">
                     <span class="font-semibold text-gray-900">{{ donor.reliability_score }}%</span>
-                    <span class="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide" :class="reliabilityBadgeClass(donor.reliability_score)">
+                    <span class="inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide whitespace-nowrap" :class="reliabilityBadgeClass(donor.reliability_score)">
                       {{ reliabilityTierLabel(donor.reliability_score) }}
                     </span>
                   </div>
@@ -263,23 +263,23 @@
 
               <td class="px-4 py-4 align-top text-sm text-gray-700">
                 <span v-if="donor.last_donation_date">{{ formatDate(donor.last_donation_date) }}</span>
-                <span v-else class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">No record</span>
+                <span v-else class="inline-flex items-center justify-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500 whitespace-nowrap">No record</span>
               </td>
 
               <td class="px-4 py-4 align-top">
-                <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide" :class="availabilityBadgeClass(donor.availability_status)">
+                <span class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide whitespace-nowrap" :class="availabilityBadgeClass(donor.availability_status)">
                   {{ donor.availability_status }}
                 </span>
               </td>
 
               <td class="px-4 py-4 align-top text-sm text-gray-700">
                 <span v-if="donor.distance != null">{{ donor.distance }} km</span>
-                <span v-else class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">Unknown</span>
+                <span v-else class="inline-flex items-center justify-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500 whitespace-nowrap">Unknown</span>
               </td>
 
-              <td class="px-4 py-4 align-top">
+              <td class="min-w-[100px] px-4 py-4 align-top">
                 <span
-                  class="rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em]"
+                  class="inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] whitespace-nowrap"
                   :class="matchReadyBadgeClass(donor.match_ready)"
                 >
                   {{ matchReadyLabel(donor.match_ready) }}

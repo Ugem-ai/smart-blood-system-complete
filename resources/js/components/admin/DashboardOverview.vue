@@ -140,11 +140,11 @@
         <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex h-32 items-end gap-2" style="height: 200px">
+        <div v-else class="flex items-end gap-2" style="height: 200px">
           <div
             v-for="(value, index) in requestTrend"
             :key="`req-${index}`"
-            class="flex flex-1 flex-col items-center gap-1"
+            class="flex h-full flex-1 flex-col justify-end items-center gap-1"
           >
             <div
               class="w-full rounded-t-sm bg-red-500/80 transition-all duration-300"

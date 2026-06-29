@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-8">
+  <div class="space-y-10">
     <AdminPageFrame
       title="Blood Inventory"
       description="Manage blood inventory for PRC Cavite Chapter"
@@ -124,7 +124,7 @@
                 <td class="px-4 py-3 text-gray-700">{{ row.component_type || '—' }}</td>
                 <td class="px-4 py-3 text-center font-bold text-gray-900">{{ row.units_available }}</td>
                 <td class="px-4 py-3 align-middle">
-                  <StatusBadge :status="getStatusText(row)" :label="getStatusText(row)" :count="row.units_available" />
+                    <StatusBadge :status="getStatusText(row)" :label="getStatusText(row)" :count="row.units_available" :showCount="false" />
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ formatDateTime(row.last_synced_at || row.updated_at) }}</td>
                 <td class="px-4 py-3 text-center">

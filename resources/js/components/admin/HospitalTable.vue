@@ -206,7 +206,7 @@
               </td>
               <td class="px-4 py-4 align-top text-sm text-gray-700">{{ hospital.location || 'Unknown location' }}</td>
               <td class="px-4 py-4 align-top">
-                <StatusBadge :status="hospital.operational_status" :label="hospital.operational_status" :count="hospital.active_requests_count" />
+                <StatusBadge :status="hospital.operational_status" :label="hospital.operational_status" :count="hospital.active_requests_count" :showCount="false" />
               </td>
               <td class="px-4 py-4 align-top text-sm font-semibold text-gray-900">{{ hospital.active_requests_count }}</td>
               <td class="px-4 py-4 align-top text-sm font-semibold">
