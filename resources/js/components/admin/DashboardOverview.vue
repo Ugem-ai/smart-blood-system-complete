@@ -137,32 +137,32 @@
             Last 7 periods
           </span>
         </div>
-        <div v-if="loading" class="flex h-48 items-center justify-center text-xs text-gray-400">
+        <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex flex-col gap-2 rounded-xl bg-gradient-to-b from-gray-50 to-white p-6">
-          <!-- Bars row: bars rest on a visible baseline so they don't appear to float -->
-          <div class="flex h-44 items-end justify-center gap-3 rounded-lg bg-white/40 px-4 pt-4">
+        <div v-else class="flex w-full flex-col gap-1.5 overflow-hidden rounded-xl bg-gradient-to-b from-gray-50 to-white p-4">
+          <!-- Bars row: contained within the panel, bars rest on a visible baseline -->
+          <div class="flex h-32 w-full items-end justify-between gap-2 rounded-lg bg-white/40 px-3 pt-3">
             <div
               v-for="(value, index) in requestTrend"
               :key="`req-${index}`"
-              class="flex h-full flex-col items-center justify-end gap-1.5"
+              class="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1"
             >
-              <span class="text-[11px] font-semibold text-gray-500">{{ value }}</span>
+              <span class="text-[10px] font-semibold text-gray-500">{{ value }}</span>
               <div
-                class="w-12 rounded-t-lg bg-gradient-to-t from-red-500 to-red-400 shadow-md transition-all duration-300 hover:from-red-600 hover:to-red-500"
+                class="w-full max-w-[28px] rounded-t-md bg-gradient-to-t from-red-500 to-red-400 shadow-sm transition-all duration-300 hover:from-red-600 hover:to-red-500"
                 :style="{ height: `${barHeightPx(value, requestTrend)}px` }"
               />
             </div>
           </div>
           <!-- Baseline: gives the bars something concrete to sit on -->
-          <div class="mx-4 h-px bg-gray-200" />
+          <div class="mx-3 h-px bg-gray-200" />
           <!-- Labels row: sits cleanly below the baseline -->
-          <div class="flex justify-center gap-3 px-4 pt-1">
+          <div class="flex w-full justify-between gap-2 px-3 pt-0.5">
             <div
               v-for="(_, index) in requestTrend"
               :key="`label-${index}`"
-              class="w-12 text-center text-xs font-semibold text-gray-700"
+              class="min-w-0 flex-1 text-center text-[11px] font-semibold text-gray-700"
             >
               {{ index + 1 }}
             </div>
@@ -324,7 +324,7 @@ const bloodTypeAriaText = computed(() =>
 // regardless of how small/uniform the underlying values are.
 const barHeightPx = (value, dataset) => {
   const max = Math.max(...dataset, 1);
-  const maxBarHeight = 160; // leaves headroom for the value label above the bar
+  const maxBarHeight = 96; // fits within the h-32 chart area, leaving room for the value label
   const minBarHeight = 6; // ensures even zero/near-zero values stay visible as a sliver
   return Math.max(minBarHeight, Math.round((Number(value) / max) * maxBarHeight));
 };
