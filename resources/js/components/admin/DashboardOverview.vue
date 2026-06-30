@@ -130,7 +130,7 @@
     <!-- Requests over time and Activity feed row -->
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <!-- Requests over time — bars rest on a visible baseline instead of floating -->
-      <div class="admin-panel">
+      <div class="admin-panel overflow-hidden">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-gray-900">Requests over time</h3>
           <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500">
@@ -140,29 +140,29 @@
         <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex w-full flex-col gap-1.5 overflow-hidden rounded-xl bg-gradient-to-b from-gray-50 to-white p-4">
+        <div v-else class="flex w-full flex-col gap-2 overflow-x-auto rounded-xl bg-gradient-to-b from-gray-50 to-white p-4">
           <!-- Bars row: contained within the panel, bars rest on a visible baseline -->
-          <div class="flex h-32 w-full items-end justify-between gap-2 rounded-lg bg-white/40 px-3 pt-3">
+          <div class="flex h-40 w-full items-end justify-center gap-3 rounded-lg bg-white/50 px-4 py-3">
             <div
               v-for="(value, index) in requestTrend"
               :key="`req-${index}`"
-              class="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1"
+              class="flex h-full flex-col items-center justify-end gap-2"
             >
-              <span class="text-[10px] font-semibold text-gray-500">{{ value }}</span>
+              <span class="text-xs font-semibold text-gray-600">{{ value }}</span>
               <div
-                class="w-full max-w-[28px] rounded-t-md bg-gradient-to-t from-red-500 to-red-400 shadow-sm transition-all duration-300 hover:from-red-600 hover:to-red-500"
+                class="w-10 rounded-t-md bg-gradient-to-t from-red-500 to-red-400 shadow-md transition-all duration-300 hover:from-red-600 hover:to-red-500"
                 :style="{ height: `${barHeightPx(value, requestTrend)}px` }"
               />
             </div>
           </div>
           <!-- Baseline: gives the bars something concrete to sit on -->
-          <div class="mx-3 h-px bg-gray-200" />
+          <div class="mx-4 h-px bg-gray-200" />
           <!-- Labels row: sits cleanly below the baseline -->
-          <div class="flex w-full justify-between gap-2 px-3 pt-0.5">
+          <div class="flex w-full justify-center gap-3 px-4 pb-2">
             <div
               v-for="(_, index) in requestTrend"
               :key="`label-${index}`"
-              class="min-w-0 flex-1 text-center text-[11px] font-semibold text-gray-700"
+              class="text-center text-xs font-semibold text-gray-700"
             >
               {{ index + 1 }}
             </div>
