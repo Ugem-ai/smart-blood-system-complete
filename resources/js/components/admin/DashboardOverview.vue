@@ -140,22 +140,26 @@
         <div v-if="loading" class="flex h-48 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex flex-col gap-3 rounded-xl bg-gray-50/50 p-4">
-          <!-- Bars row: items-end anchors bars to the bottom with proper spacing -->
-          <div class="flex h-40 items-end gap-2 rounded-lg bg-white/70 px-2 py-3">
+        <div v-else class="flex flex-col gap-4 rounded-xl bg-gradient-to-b from-gray-50 to-white p-6">
+          <!-- Bars row: centered with consistent spacing -->
+          <div class="flex h-48 items-end justify-center gap-3 rounded-lg bg-white/40 px-4 py-4">
             <div
               v-for="(value, index) in requestTrend"
               :key="`req-${index}`"
-              class="flex-1 rounded-t-md bg-gradient-to-t from-red-500 to-red-400 shadow-sm transition-all duration-300 hover:from-red-600 hover:to-red-500"
-              :style="{ height: `${barHeightPercent(value, requestTrend)}%`, minHeight: '8px' }"
-            />
+              class="flex flex-col items-center gap-2"
+            >
+              <div
+                class="w-12 rounded-t-lg bg-gradient-to-t from-red-500 to-red-400 shadow-md transition-all duration-300 hover:from-red-600 hover:to-red-500"
+                :style="{ height: `${barHeightPercent(value, requestTrend)}%`, minHeight: '12px' }"
+              />
+            </div>
           </div>
           <!-- Labels row: sits cleanly below the bars -->
-          <div class="flex gap-2 px-2">
+          <div class="flex justify-center gap-3 px-4">
             <div
               v-for="(_, index) in requestTrend"
               :key="`label-${index}`"
-              class="flex-1 text-center text-xs font-medium text-gray-600"
+              class="w-12 text-center text-xs font-semibold text-gray-700"
             >
               {{ index + 1 }}
             </div>
