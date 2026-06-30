@@ -129,7 +129,7 @@
 
     <!-- Requests over time and Activity feed row -->
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <!-- Requests over time — FIXED: labels extracted into a separate row below the bars -->
+      <!-- Requests over time — bars rest on a visible baseline instead of floating -->
       <div class="admin-panel">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-gray-900">Requests over time</h3>
@@ -140,22 +140,25 @@
         <div v-if="loading" class="flex h-48 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex flex-col gap-4 rounded-xl bg-gradient-to-b from-gray-50 to-white p-6">
-          <!-- Bars row: centered with consistent spacing -->
-          <div class="flex h-48 items-end justify-center gap-3 rounded-lg bg-white/40 px-4 py-4">
+        <div v-else class="flex flex-col gap-2 rounded-xl bg-gradient-to-b from-gray-50 to-white p-6">
+          <!-- Bars row: bars rest on a visible baseline so they don't appear to float -->
+          <div class="flex h-44 items-end justify-center gap-3 rounded-lg bg-white/40 px-4 pt-4">
             <div
               v-for="(value, index) in requestTrend"
               :key="`req-${index}`"
-              class="flex flex-col items-center gap-2"
+              class="flex h-full flex-col items-center justify-end gap-1.5"
             >
+              <span class="text-[11px] font-semibold text-gray-500">{{ value }}</span>
               <div
                 class="w-12 rounded-t-lg bg-gradient-to-t from-red-500 to-red-400 shadow-md transition-all duration-300 hover:from-red-600 hover:to-red-500"
-                :style="{ height: `${barHeightPercent(value, requestTrend)}%`, minHeight: '12px' }"
+                :style="{ height: `${barHeightPx(value, requestTrend)}px` }"
               />
             </div>
           </div>
-          <!-- Labels row: sits cleanly below the bars -->
-          <div class="flex justify-center gap-3 px-4">
+          <!-- Baseline: gives the bars something concrete to sit on -->
+          <div class="mx-4 h-px bg-gray-200" />
+          <!-- Labels row: sits cleanly below the baseline -->
+          <div class="flex justify-center gap-3 px-4 pt-1">
             <div
               v-for="(_, index) in requestTrend"
               :key="`label-${index}`"
@@ -317,9 +320,13 @@ const bloodTypeAriaText = computed(() =>
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const barHeightPercent = (value, dataset) => {
+// Pixel-based bar height keeps the bars visually anchored to the baseline
+// regardless of how small/uniform the underlying values are.
+const barHeightPx = (value, dataset) => {
   const max = Math.max(...dataset, 1);
-  return Math.round((value / max) * 100);
+  const maxBarHeight = 160; // leaves headroom for the value label above the bar
+  const minBarHeight = 6; // ensures even zero/near-zero values stay visible as a sliver
+  return Math.max(minBarHeight, Math.round((Number(value) / max) * maxBarHeight));
 };
 
 const badgeClass = (type) => {
