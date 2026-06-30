@@ -213,7 +213,7 @@
     </a-spin>
 
     <!-- Inventory Adjust Modal -->
-    <InventoryAdjustModal
+    <InventoryModal
       :visible="modal.visible"
       :mode="modal.mode"
       :row="modal.row"
@@ -230,7 +230,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import AdminPageFrame from './AdminPageFrame.vue';
 import StatusBadge from '../ui/StatusBadge.vue';
-import InventoryAdjustModal from './InventoryAdjustModal.vue';
+import InventoryModal from './InventoryModal.vue';
 import { useChapterInventory } from '../../composables/useChapterInventory';
 import api from '../../lib/api';
 
