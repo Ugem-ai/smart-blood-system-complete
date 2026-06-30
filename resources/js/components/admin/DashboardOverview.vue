@@ -129,7 +129,7 @@
 
     <!-- Requests over time and Activity feed row -->
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <!-- Requests over time -->
+      <!-- Requests over time — FIXED: labels extracted into a separate row below the bars -->
       <div class="admin-panel">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-gray-900">Requests over time</h3>
@@ -137,20 +137,28 @@
             Last 7 periods
           </span>
         </div>
-        <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
+        <div v-if="loading" class="flex h-48 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex items-end gap-2" style="height: 200px">
-          <div
-            v-for="(value, index) in requestTrend"
-            :key="`req-${index}`"
-            class="flex h-full flex-1 flex-col justify-end items-center gap-1"
-          >
+        <div v-else class="flex flex-col gap-3 rounded-xl bg-gray-50/50 p-4">
+          <!-- Bars row: items-end anchors bars to the bottom with proper spacing -->
+          <div class="flex h-40 items-end gap-2 rounded-lg bg-white/70 px-2 py-3">
             <div
-              class="w-full rounded-t-sm bg-red-500/80 transition-all duration-300"
-              :style="{ height: `${barHeightPercent(value, requestTrend)}%`, minHeight: '6px' }"
+              v-for="(value, index) in requestTrend"
+              :key="`req-${index}`"
+              class="flex-1 rounded-t-md bg-gradient-to-t from-red-500 to-red-400 shadow-sm transition-all duration-300 hover:from-red-600 hover:to-red-500"
+              :style="{ height: `${barHeightPercent(value, requestTrend)}%`, minHeight: '8px' }"
             />
-            <span class="text-[10px] text-gray-400">{{ index + 1 }}</span>
+          </div>
+          <!-- Labels row: sits cleanly below the bars -->
+          <div class="flex gap-2 px-2">
+            <div
+              v-for="(_, index) in requestTrend"
+              :key="`label-${index}``"
+              class="flex-1 text-center text-xs font-medium text-gray-600"
+            >
+              {{ index + 1 }}
+            </div>
           </div>
         </div>
       </div>
