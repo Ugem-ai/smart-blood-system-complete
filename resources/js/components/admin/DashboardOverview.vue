@@ -137,36 +137,17 @@
             Last 7 periods
           </span>
         </div>
-        <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
+        <div v-if="loading" class="flex h-44 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex w-full flex-col gap-2 overflow-x-auto rounded-xl bg-gradient-to-b from-gray-50 to-white p-4">
-          <!-- Bars row: contained within the panel, bars rest on a visible baseline -->
-          <div class="flex h-40 w-full items-end justify-center gap-3 rounded-lg bg-white/50 px-4 py-3">
-            <div
-              v-for="(value, index) in requestTrend"
-              :key="`req-${index}`"
-              class="flex h-full flex-col items-center justify-end gap-2"
-            >
-              <span class="text-xs font-semibold text-gray-600">{{ value }}</span>
-              <div
-                class="w-10 rounded-t-md bg-gradient-to-t from-red-500 to-red-400 shadow-md transition-all duration-300 hover:from-red-600 hover:to-red-500"
-                :style="{ height: `${barHeightPx(value, requestTrend)}px` }"
-              />
-            </div>
-          </div>
-          <!-- Baseline: gives the bars something concrete to sit on -->
-          <div class="mx-4 h-px bg-gray-200" />
-          <!-- Labels row: sits cleanly below the baseline -->
-          <div class="flex w-full justify-center gap-3 px-4 pb-2">
-            <div
-              v-for="(_, index) in requestTrend"
-              :key="`label-${index}`"
-              class="text-center text-xs font-semibold text-gray-700"
-            >
-              {{ index + 1 }}
-            </div>
-          </div>
+        <div v-else class="h-44 w-full">
+          <canvas
+            ref="requestsOverTimeCanvas"
+            aria-label="Bar chart showing requests over the last 7 periods"
+            role="img"
+          >
+            Requests over time: {{ requestTrend.join(', ') }}
+          </canvas>
         </div>
       </div>
 
@@ -234,9 +215,11 @@ const loading = ref(false);
 const error = ref('');
 const overview = ref({});
 const bloodTypeDemandCanvas = ref(null);
+const requestsOverTimeCanvas = ref(null);
 const bloodTypeDemand = ref({ 'O+': 0, 'A-': 0, 'B+': 0, 'AB+': 0 });
 
 let bloodTypeDemandChart = null;
+let requestsOverTimeChart = null;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -320,14 +303,7 @@ const bloodTypeAriaText = computed(() =>
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// Pixel-based bar height keeps the bars visually anchored to the baseline
-// regardless of how small/uniform the underlying values are.
-const barHeightPx = (value, dataset) => {
-  const max = Math.max(...dataset, 1);
-  const maxBarHeight = 96; // fits within the h-32 chart area, leaving room for the value label
-  const minBarHeight = 6; // ensures even zero/near-zero values stay visible as a sliver
-  return Math.max(minBarHeight, Math.round((Number(value) / max) * maxBarHeight));
-};
+
 
 const badgeClass = (type) => {
   const map = {
@@ -384,6 +360,8 @@ const buildBloodTypeDemand = (requests) => {
 const destroyChart = () => {
   bloodTypeDemandChart?.destroy();
   bloodTypeDemandChart = null;
+  requestsOverTimeChart?.destroy();
+  requestsOverTimeChart = null;
 };
 
 const renderChart = async () => {
@@ -423,6 +401,110 @@ const renderChart = async () => {
         },
       },
     },
+  });
+};
+
+const renderRequestsOverTimeChart = async () => {
+  await nextTick();
+  if (!requestsOverTimeCanvas.value) return;
+
+  if (requestsOverTimeChart) {
+    requestsOverTimeChart.destroy();
+    requestsOverTimeChart = null;
+  }
+
+  const data = requestTrend.value || [];
+  const labels = Array.from({ length: data.length }, (_, i) => String(i + 1));
+
+  requestsOverTimeChart = new Chart(requestsOverTimeCanvas.value, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Requests',
+          data,
+          backgroundColor: '#f87171',
+          borderColor: '#ef4444',
+          borderWidth: 0,
+          borderRadius: 6,
+          hoverBackgroundColor: '#dc2626',
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'x',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title(ctx) {
+              return `Period ${ctx[0].label}`;
+            },
+            label(ctx) {
+              return `${Number(ctx.raw) || 0} requests`;
+            },
+          },
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: { size: 14, weight: 'bold' },
+          bodyFont: { size: 13 },
+          cornerRadius: 6,
+          displayColors: false,
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { size: 12, weight: '500' },
+            color: '#666',
+          },
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.05)',
+            drawBorder: false,
+          },
+          ticks: {
+            font: { size: 12 },
+            color: '#999',
+            stepSize: Math.ceil((Math.max(...(data || [1]), 1) || 1) / 5),
+          },
+        },
+      },
+    },
+    plugins: [
+      {
+        id: 'dataLabels',
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          chart.data.datasets.forEach((dataset, datasetIndex) => {
+            const meta = chart.getDatasetMeta(datasetIndex);
+            if (!meta.hidden) {
+              meta.data.forEach((element, index) => {
+                const value = dataset.data[index];
+                if (value !== null && value !== undefined) {
+                  const x = element.x;
+                  const y = element.y - 12;
+
+                  ctx.fillStyle = '#374151';
+                  ctx.font = 'bold 13px sans-serif';
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'bottom';
+                  ctx.fillText(String(value), x, y);
+                }
+              });
+            }
+          });
+        },
+      },
+    ],
   });
 };
 
@@ -475,6 +557,9 @@ const loadOverview = async () => {
         timestamp: r.created_at,
       })),
     };
+
+    // ── Render requests over time chart ────────────────────────────────────
+    await renderRequestsOverTimeChart();
   } catch (err) {
     console.error('[AdminDashboard] loadOverview failed:', err);
     error.value = 'Unable to load dashboard overview. Please try again.';
