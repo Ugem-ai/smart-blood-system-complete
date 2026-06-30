@@ -154,7 +154,7 @@
           <div class="flex gap-2 px-2">
             <div
               v-for="(_, index) in requestTrend"
-              :key="`label-${index}``"
+              :key="`label-${index}`"
               class="flex-1 text-center text-xs font-medium text-gray-600"
             >
               {{ index + 1 }}
