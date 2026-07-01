@@ -14,7 +14,7 @@
       </template>
 
       <template #metrics>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
           <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
             <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Total Units</p>
             <p class="mt-3 text-3xl font-black text-blue-900">{{ stats.totalUnits }}</p>
@@ -56,7 +56,7 @@
     </div>
 
     <a-spin :spinning="loading.inventory">
-      <div class="space-y-6">
+      <div class="space-y-8">
       <!-- Filters -->
       <section class="space-y-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
         <div>

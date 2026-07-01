@@ -102,7 +102,7 @@
       <template v-else>
         <div v-if="loadingAnalysis && !dashboard" class="space-y-6">
           <div class="h-44 animate-pulse rounded-[2rem] bg-gray-100"></div>
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
             <div v-for="card in 5" :key="card" class="h-28 animate-pulse rounded-[2rem] bg-gray-100"></div>
           </div>
           <div class="h-96 animate-pulse rounded-[2rem] bg-gray-100"></div>
@@ -165,7 +165,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
           <div v-for="card in realTimeCards" :key="card.key" class="rounded-[2rem] border p-5 shadow-sm" :class="card.shellClass">
             <p class="text-sm font-semibold text-gray-700">{{ card.label }}</p>
             <p class="mt-4 text-3xl font-black tracking-tight text-gray-950">{{ card.value }}</p>
@@ -178,7 +178,7 @@
           </div>
         </div>
 
-        <div class="rounded-[2rem] border border-gray-200 bg-white p-3 shadow-sm">
+        <div class="mt-6 rounded-[2rem] border border-gray-200 bg-white p-3 shadow-sm">
           <div class="flex flex-wrap gap-2">
             <button v-for="tab in tabs" :key="tab.id" type="button" class="rounded-2xl px-4 py-3 text-sm font-semibold transition" :class="activeTab === tab.id ? 'bg-gray-950 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'" @click="activeTab = tab.id">
               {{ tab.label }}
@@ -186,7 +186,7 @@
           </div>
         </div>
 
-        <div v-if="activeTab === 'overview'" class="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <div v-if="activeTab === 'overview'" class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <div class="space-y-6">
             <div class="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-sm">
               <div class="flex items-center justify-between gap-4">
@@ -275,7 +275,7 @@
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'ranking'" class="overflow-hidden rounded-[2rem] border border-gray-200 bg-white shadow-sm">
+        <div v-else-if="activeTab === 'ranking'" class="mt-6 overflow-hidden rounded-[2rem] border border-gray-200 bg-white shadow-sm">
           <div class="border-b border-gray-100 px-6 py-5">
             <div class="flex items-center justify-between gap-4">
               <div>
@@ -360,7 +360,7 @@
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'analytics'" class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div v-else-if="activeTab === 'analytics'" class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
           <div class="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-sm xl:col-span-2">
             <p class="text-xs font-black uppercase tracking-[0.2em] text-gray-500">Visual Analytics</p>
             <h3 class="mt-2 text-xl font-black text-gray-950">Response rate, donor engagement, and matching efficiency</h3>
@@ -395,7 +395,7 @@
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'logs'" class="grid grid-cols-1 gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <div v-else-if="activeTab === 'logs'" class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[0.85fr_1.15fr]">
           <div class="rounded-[2rem] border border-gray-200 bg-white p-6 shadow-sm">
             <p class="text-xs font-black uppercase tracking-[0.2em] text-gray-500">Process Timeline</p>
             <h3 class="mt-2 text-xl font-black text-gray-950">Matching stage durations</h3>
