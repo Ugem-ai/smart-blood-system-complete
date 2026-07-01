@@ -137,10 +137,10 @@
             Last 7 periods
           </span>
         </div>
-        <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
+        <div v-if="loading" class="flex h-80 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="flex h-32 w-full items-end">
+        <div v-else class="relative mt-1 h-80 w-full overflow-hidden">
           <canvas
             ref="requestsOverTimeCanvas"
             aria-label="Bar chart showing requests over the last 7 periods"
@@ -438,6 +438,11 @@ const renderRequestsOverTimeChart = async () => {
       responsive: true,
       maintainAspectRatio: false,
       indexAxis: 'x',
+      layout: {
+        padding: {
+          top: 14,
+        },
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -491,7 +496,7 @@ const renderRequestsOverTimeChart = async () => {
                 const value = dataset.data[index];
                 if (value !== null && value !== undefined) {
                   const x = element.x;
-                  const y = element.y - 12;
+                  const y = Math.max(element.y - 12, chart.chartArea.top + 12);
 
                   ctx.fillStyle = '#374151';
                   ctx.font = 'bold 13px sans-serif';

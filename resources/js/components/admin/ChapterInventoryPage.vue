@@ -56,6 +56,7 @@
     </div>
 
     <a-spin :spinning="loading.inventory">
+      <div class="space-y-6">
       <!-- Filters -->
       <section class="space-y-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
         <div>
@@ -210,6 +211,7 @@
           </table>
         </div>
       </section>
+      </div>
     </a-spin>
 
     <!-- Inventory Adjust Modal -->
