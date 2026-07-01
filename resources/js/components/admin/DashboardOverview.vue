@@ -130,17 +130,17 @@
     <!-- Requests over time and Activity feed row -->
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <!-- Requests over time — bars rest on a visible baseline instead of floating -->
-      <div class="admin-panel overflow-hidden">
+      <div class="admin-panel">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-gray-900">Requests over time</h3>
           <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500">
             Last 7 periods
           </span>
         </div>
-        <div v-if="loading" class="flex h-44 items-center justify-center text-xs text-gray-400">
+        <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="h-48 w-full md:h-56">
+        <div v-else class="h-32 w-full">
           <canvas
             ref="requestsOverTimeCanvas"
             aria-label="Bar chart showing requests over the last 7 periods"
