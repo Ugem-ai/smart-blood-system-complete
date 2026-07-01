@@ -130,7 +130,7 @@
     <!-- Requests over time and Activity feed row -->
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <!-- Requests over time — bars rest on a visible baseline instead of floating -->
-      <div class="admin-panel">
+      <div class="admin-panel self-start">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-gray-900">Requests over time</h3>
           <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500">
