@@ -140,7 +140,7 @@
         <div v-if="loading" class="flex h-44 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="h-44 w-full">
+        <div v-else class="h-48 w-full md:h-56">
           <canvas
             ref="requestsOverTimeCanvas"
             aria-label="Bar chart showing requests over the last 7 periods"
