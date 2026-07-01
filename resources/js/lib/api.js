@@ -3,6 +3,7 @@ import { clearAuthSession, getAuthSession } from './auth';
 
 const api = axios.create({
   baseURL: '/api',
+  timeout: 15000,
   headers: {
     Accept: 'application/json',
   },

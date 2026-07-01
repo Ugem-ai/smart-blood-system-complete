@@ -148,7 +148,9 @@ class NotificationService
 
     public function notificationHealth(): array
     {
-        $pushConfigured = $this->isOneSignalConfigured();
+        $oneSignalConfigured = $this->isOneSignalConfigured();
+        $fcmConfigured = $this->isFcmConfigured();
+        $pushConfigured = $oneSignalConfigured || $fcmConfigured;
         $smsConfigured = $this->isTwilioConfigured() || $this->isUnismsConfigured();
         $smsProvider = $this->smsProvider();
         $emailConfigured = $this->isEmailConfigured();
@@ -174,6 +176,8 @@ class NotificationService
         return [
             'ready' => $pushConfigured || $smsConfigured || $emailConfigured,
             'push_configured' => $pushConfigured,
+            'push_onesignal_configured' => $oneSignalConfigured,
+            'push_fcm_configured' => $fcmConfigured,
             'sms_configured' => $smsConfigured,
             'email_configured' => $emailConfigured,
             'sms_provider' => $smsProvider,
@@ -668,6 +672,11 @@ class NotificationService
     {
         return trim((string) config('services.onesignal.app_id', '')) !== ''
             && trim((string) config('services.onesignal.rest_api_key', '')) !== '';
+    }
+
+    private function isFcmConfigured(): bool
+    {
+        return trim((string) config('services.fcm.server_key', '')) !== '';
     }
 
     private function isEmailConfigured(): bool

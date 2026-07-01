@@ -126,13 +126,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import api from '../../lib/api';
 import { fetchHospitalRequests } from '../../lib/hospitalPanel';
 
 const notifications = ref([]);
 const loading = ref(true);
 const filterType = ref('');
+let refreshInterval = null;
+let pollInFlight = false;
 
 const donorResponseCount = computed(() => notifications.value.filter(n => n.type === 'donor-response').length);
 const systemAlertCount = computed(() => notifications.value.filter(n => n.type === 'system-alert').length);
@@ -215,6 +217,11 @@ const handleDonorAction = async (notification, action) => {
 };
 
 const loadNotifications = async () => {
+  if (pollInFlight) {
+    return;
+  }
+
+  pollInFlight = true;
   loading.value = true;
 
   try {
@@ -239,9 +246,21 @@ const loadNotifications = async () => {
     // Sort by most recent first
     notifications.value.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   } catch (err) {
+    const status = err?.response?.status;
+
+    // Prevent repeated unauthorized polling noise after role switches/session changes.
+    if (status === 401 || status === 403) {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+      return;
+    }
+
     console.error('Failed to load notifications:', err);
   } finally {
     loading.value = false;
+    pollInFlight = false;
   }
 };
 
@@ -249,11 +268,15 @@ onMounted(() => {
   loadNotifications();
 
   // Auto-refresh every 10 seconds
-  const refreshInterval = setInterval(() => {
+  refreshInterval = setInterval(() => {
     loadNotifications();
   }, 10000);
+});
 
-  // Cleanup on unmount
-  return () => clearInterval(refreshInterval);
+onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
 });
 </script>
