@@ -137,10 +137,10 @@
             Last 7 periods
           </span>
         </div>
-        <div v-if="loading" class="flex h-32 items-center justify-center text-xs text-gray-400">
+        <div v-if="loading" class="flex h-50 items-center justify-center text-xs text-gray-400">
           Loading…
         </div>
-        <div v-else class="h-32 w-full">
+        <div v-else class="h-50 w-full">
           <canvas
             ref="requestsOverTimeCanvas"
             aria-label="Bar chart showing requests over the last 7 periods"

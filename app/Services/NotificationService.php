@@ -245,7 +245,9 @@ class NotificationService
         $metrics = app(MonitoringMetricsService::class);
         $appId = trim((string) config('services.onesignal.app_id', ''));
         $restApiKey = trim((string) config('services.onesignal.rest_api_key', ''));
-        $endpoint = (string) config('services.onesignal.endpoint', 'https://api.onesignal.com/notifications?c=push');
+        $oneSignalEndpoint = (string) config('services.onesignal.endpoint', 'https://api.onesignal.com/notifications?c=push');
+        $fcmServerKey = trim((string) config('services.fcm.server_key', ''));
+        $fcmEndpoint = (string) config('services.fcm.endpoint', 'https://fcm.googleapis.com/fcm/send');
         $batchSize = max(1, (int) config('services.notifications.push_batch_size', 100));
         $batchPacingUs = max(0, (int) config('services.notifications.push_batch_pacing_us', 100000));
         $tokens = DeviceToken::query()
@@ -253,35 +255,16 @@ class NotificationService
             ->pluck('token')
             ->filter()
             ->values();
+        $isOneSignalConfigured = $appId !== '' && $restApiKey !== '';
+        $isFcmConfigured = $fcmServerKey !== '';
 
-        if ($tokens->isEmpty()) {
+        if (! $isOneSignalConfigured && ! $isFcmConfigured) {
             $this->recordDelivery(
                 userId: $user->id,
                 type: $type,
                 channel: 'push',
                 status: 'skipped',
-                response: ['reason' => 'no_device_tokens'],
-                durationMs: 0
-            );
-
-            Log::info('notification.push.skipped', [
-                'user_id' => $user->id,
-                'type' => $type,
-                'reason' => 'no_device_tokens',
-            ]);
-
-            $metrics->recordNotificationResult('push', false);
-
-            return false;
-        }
-
-        if ($appId === '' || $restApiKey === '') {
-            $this->recordDelivery(
-                userId: $user->id,
-                type: $type,
-                channel: 'push',
-                status: 'skipped',
-                response: ['reason' => 'onesignal_not_configured'],
+                response: ['reason' => 'push_provider_not_configured'],
                 durationMs: 0
             );
 
@@ -296,6 +279,84 @@ class NotificationService
         }
 
         try {
+            if ($isFcmConfigured) {
+                $start = microtime(true);
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'key='.$fcmServerKey,
+                ])
+                    ->acceptJson()
+                    ->post($fcmEndpoint, [
+                        'registration_ids' => $tokens->all(),
+                        'notification' => [
+                            'title' => $title,
+                            'body' => $message,
+                        ],
+                        'data' => $data,
+                    ]);
+
+                $durationMs = (microtime(true) - $start) * 1000;
+                $responseBody = $response->json();
+                $pushSuccessful = $response->successful()
+                    && (int) data_get($responseBody, 'failure', 0) === 0
+                    && $tokens->isNotEmpty();
+
+                $payload = [
+                    'title' => $title,
+                    'message' => $message,
+                    'payload' => $data,
+                    'provider' => 'fcm',
+                    'http_status' => $response->status(),
+                    'response' => $responseBody,
+                    'token_batch_size' => $tokens->count(),
+                ];
+
+                if ($tokens->isEmpty()) {
+                    $payload['reason'] = 'no_device_tokens';
+                }
+
+                $this->recordDelivery(
+                    userId: $user->id,
+                    type: $type,
+                    channel: 'push',
+                    status: $pushSuccessful ? 'sent' : 'failed',
+                    response: $payload,
+                    durationMs: $durationMs
+                );
+
+                $metrics->recordNotificationResult('push', $pushSuccessful);
+
+                if ($pushSuccessful) {
+                    DeviceToken::query()
+                        ->where('user_id', $user->id)
+                        ->whereIn('token', $tokens->all())
+                        ->update(['last_used_at' => now()]);
+                }
+
+                return $pushSuccessful;
+            }
+
+            if ($tokens->isEmpty()) {
+                $this->recordDelivery(
+                    userId: $user->id,
+                    type: $type,
+                    channel: 'push',
+                    status: 'skipped',
+                    response: ['reason' => 'no_device_tokens'],
+                    durationMs: 0
+                );
+
+                Log::info('notification.push.skipped', [
+                    'user_id' => $user->id,
+                    'type' => $type,
+                    'reason' => 'no_device_tokens',
+                ]);
+
+                $metrics->recordNotificationResult('push', false);
+
+                return false;
+            }
+
             $allSuccessful = true;
 
             foreach ($tokens->chunk($batchSize) as $chunk) {
@@ -306,7 +367,7 @@ class NotificationService
                     'Authorization' => 'Key '.$restApiKey,
                 ])
                     ->acceptJson()
-                    ->post($endpoint, [
+                    ->post($oneSignalEndpoint, [
                         'app_id' => $appId,
                         'include_subscription_ids' => $chunkTokens,
                         'target_channel' => 'push',
