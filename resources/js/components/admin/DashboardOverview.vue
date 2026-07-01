@@ -558,13 +558,13 @@ const loadOverview = async () => {
       })),
     };
 
-    // ── Render requests over time chart ────────────────────────────────────
-    await renderRequestsOverTimeChart();
   } catch (err) {
     console.error('[AdminDashboard] loadOverview failed:', err);
     error.value = 'Unable to load dashboard overview. Please try again.';
   } finally {
     loading.value = false;
+    // The chart canvas is inside `v-else`, so render only after loading flips to false.
+    await renderRequestsOverTimeChart();
   }
 };
 
