@@ -78,6 +78,11 @@ class Donor extends Model
         return $this->hasMany(DonorRequestResponse::class);
     }
 
+    public function requestAcceptances(): HasMany
+    {
+        return $this->hasMany(DonorRequestAcceptance::class);
+    }
+
     public function requestMatches(): HasMany
     {
         return $this->hasMany(RequestMatch::class);

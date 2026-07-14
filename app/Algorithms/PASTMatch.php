@@ -3,6 +3,7 @@
 namespace App\Algorithms;
 
 use App\Models\Donor;
+use App\Models\DonorRequestAcceptance;
 use App\Services\EmergencyBroadcastModeService;
 use App\Services\SystemSettingsService;
 use Carbon\Carbon;
@@ -30,9 +31,33 @@ class PASTMatch
     {
         $now = now();
         $weights = $this->systemSettingsService->pastMatchWeights($context['urgency_level'] ?? null);
+        $acceptedDonorIdsForRequest = collect();
+
+        $bloodRequestId = isset($context['blood_request_id'])
+            ? (int) $context['blood_request_id']
+            : null;
+
+        if ($bloodRequestId) {
+            $candidateDonorIds = $filteredDonors
+                ->pluck('donor.id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($candidateDonorIds !== []) {
+                $acceptedDonorIdsForRequest = DonorRequestAcceptance::query()
+                    ->where('blood_request_id', $bloodRequestId)
+                    ->where('status', 'accepted')
+                    ->whereIn('donor_id', $candidateDonorIds)
+                    ->pluck('donor_id')
+                    ->map(fn ($id) => (int) $id);
+            }
+        }
 
         return $filteredDonors
-            ->map(function (array $item) use ($context, $now, $weights) {
+            ->map(function (array $item) use ($context, $now, $weights, $acceptedDonorIdsForRequest) {
                 $donor = $item['donor'];
                 $distanceKm = $item['distance_km'];
                 $estimatedTravelMinutes = (float) ($item['estimated_travel_minutes'] ?? self::DEFAULT_MAX_TRAVEL_TIME_MINUTES);
@@ -55,7 +80,9 @@ class PASTMatch
 
                 // New factors: travel_willingness, distance_efficiency, and chapter_preference
                 $travelWillingness = 0.0;
-                if ($donor->willing_for_emergency_travel ?? false) {
+                if ($acceptedDonorIdsForRequest->contains((int) $donor->id)) {
+                    $travelWillingness = 100.0;
+                } elseif ($donor->willing_for_emergency_travel ?? false) {
                     $travelWillingness = 100.0;
                 } elseif ($distanceKm !== null) {
                     $normalRadius = max(5, (int) ($donor->normal_travel_radius ?? 5));

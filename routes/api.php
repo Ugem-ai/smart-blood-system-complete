@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminPanelController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\DonorProfileController;
+use App\Http\Controllers\Api\DonorRequestAcceptanceController;
 use App\Http\Controllers\Api\DonorResponseController;
 use App\Http\Controllers\Api\HospitalInventoryController;
 use App\Http\Controllers\Api\HospitalProfileController;
@@ -100,6 +101,7 @@ Route::middleware(['auth:sanctum', 'role:donor', 'audit', 'monitor', 'throttle:6
     Route::post('/donor/accept', [DonorResponseController::class, 'accept']);
     Route::post('/donor/maybe', [DonorResponseController::class, 'maybe']);
     Route::post('/donor/decline', [DonorResponseController::class, 'decline']);
+    Route::post('/blood-requests/{bloodRequest}/acceptances', [DonorRequestAcceptanceController::class, 'store']);
 });
 
 Route::middleware('throttle:10,1')->post('/hospital/register', [HospitalProfileController::class, 'register']);
@@ -121,6 +123,7 @@ Route::middleware(['auth:sanctum', 'role:hospital', 'audit', 'monitor', 'throttl
     Route::match(['put', 'patch'], '/hospital/requests/{bloodRequest}', [HospitalRequestController::class, 'update']);
     Route::get('/hospital/request/{bloodRequest}/matched-donors', [HospitalRequestController::class, 'matchedDonors']);
     Route::get('/hospital/requests/{bloodRequest}/matched-donors', [HospitalRequestController::class, 'matchedDonors']);
+    Route::get('/hospital/requests/{bloodRequest}/travel-acceptances', [HospitalRequestController::class, 'travelAcceptances']);
 
     Route::post('/hospital/confirm-donation', [HospitalRequestController::class, 'confirmDonation']);
 });
@@ -162,6 +165,7 @@ Route::middleware(['auth:sanctum', 'role:admin', 'audit', 'monitor', 'throttle:6
     Route::get('/past-match/{bloodRequest}', [AdminPanelController::class, 'pastMatchDetails']);
     Route::post('/past-match/{bloodRequest}/control', [AdminPanelController::class, 'pastMatchControl']);
     Route::get('/admin/requests/{bloodRequest}/matched-donors', [AdminPanelController::class, 'requestMatchedDonors']);
+    Route::get('/admin/requests/{bloodRequest}/travel-acceptances', [AdminPanelController::class, 'requestTravelAcceptances']);
     Route::post('/admin/requests/{bloodRequest}/trigger-matching', [AdminPanelController::class, 'triggerMatching']);
     Route::patch('/admin/requests/{bloodRequest}', [AdminPanelController::class, 'updateRequest']);
     Route::get('/admin/donors/active', [AdminPanelController::class, 'activeDonors']);

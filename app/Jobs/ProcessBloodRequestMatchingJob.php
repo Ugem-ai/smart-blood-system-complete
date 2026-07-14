@@ -5,10 +5,13 @@ namespace App\Jobs;
 use App\Algorithms\PASTMatch;
 use App\Models\ActivityLog;
 use App\Models\BloodRequest;
+use App\Models\DonorRequestAcceptance;
 use App\Models\RequestMatch;
 use App\Services\BloodRequestService;
+use App\Services\DonorCooldownService;
 use App\Services\DonorFilterService;
 use App\Services\MonitoringMetricsService;
+use App\Services\NotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Queue\Queueable;
@@ -63,8 +66,18 @@ class ProcessBloodRequestMatchingJob implements ShouldQueue, ShouldBeUnique
         return 'matching:request:'.$this->bloodRequestId;
     }
 
-    public function handle(DonorFilterService $donorFilterService, PASTMatch $pastMatch, MonitoringMetricsService $metrics, ?BloodRequestService $bloodRequestService = null): void
+    public function handle(
+        DonorFilterService $donorFilterService,
+        PASTMatch $pastMatch,
+        MonitoringMetricsService $metrics,
+        ?NotificationService $notificationService = null,
+        ?DonorCooldownService $cooldownService = null,
+        ?BloodRequestService $bloodRequestService = null
+    ): void
     {
+        $notificationService ??= app(NotificationService::class);
+        $cooldownService ??= app(DonorCooldownService::class);
+
         $start = microtime(true);
 
         Log::info('queue.job.start', [
@@ -108,9 +121,20 @@ class ProcessBloodRequestMatchingJob implements ShouldQueue, ShouldBeUnique
                 requestIsEmergency: $bloodRequest->is_emergency,
             );
 
+            if ((bool) $bloodRequest->is_emergency) {
+                $this->triggerLongDistanceTravelAcceptanceIfNeeded(
+                    bloodRequest: $bloodRequest,
+                    donorFilterService: $donorFilterService,
+                    notificationService: $notificationService,
+                    cooldownService: $cooldownService,
+                    baseFilteredDonors: $filteredDonors,
+                );
+            }
+
             $topMatches = $pastMatch->rankDonors($filteredDonors, [
                 'urgency_level' => $bloodRequest->urgency_level,
                 'request_chapter_name' => $requestChapterName,
+                'blood_request_id' => $bloodRequest->id,
             ])->take(10)->values();
 
             // If critical and local inventory insufficient, perform progressive emergency expansion
@@ -148,6 +172,7 @@ class ProcessBloodRequestMatchingJob implements ShouldQueue, ShouldBeUnique
                     $expandedMatches = $pastMatch->rankDonors($expanded, [
                         'urgency_level' => $bloodRequest->urgency_level,
                         'request_chapter_name' => $requestChapterName,
+                        'blood_request_id' => $bloodRequest->id,
                     ])->values();
 
                     foreach ($expandedMatches as $match) {
@@ -165,7 +190,13 @@ class ProcessBloodRequestMatchingJob implements ShouldQueue, ShouldBeUnique
                     }
                 }
                 // Re-rank combined matches and limit to top 10
-                $topMatches = $pastMatch->rankDonors($topMatches->pluck('donor')->map(fn($d) => ['donor' => $d])->values(), ['urgency_level' => $bloodRequest->urgency_level])->take(10)->values();
+                $topMatches = $pastMatch->rankDonors(
+                    $topMatches->pluck('donor')->map(fn ($d) => ['donor' => $d])->values(),
+                    [
+                        'urgency_level' => $bloodRequest->urgency_level,
+                        'blood_request_id' => $bloodRequest->id,
+                    ]
+                )->take(10)->values();
             }
 
             foreach ($topMatches as $index => $match) {
@@ -255,5 +286,88 @@ class ProcessBloodRequestMatchingJob implements ShouldQueue, ShouldBeUnique
             'attempts' => $this->attempts(),
             'error' => $exception->getMessage(),
         ]);
+    }
+
+    private function triggerLongDistanceTravelAcceptanceIfNeeded(
+        BloodRequest $bloodRequest,
+        DonorFilterService $donorFilterService,
+        NotificationService $notificationService,
+        DonorCooldownService $cooldownService,
+        \Illuminate\Support\Collection $baseFilteredDonors
+    ): void {
+        $eligibleWithinNormalRadius = $baseFilteredDonors->first(function (array $item): bool {
+            $distanceKm = $item['distance_km'] ?? null;
+
+            if ($distanceKm === null) {
+                return false;
+            }
+
+            $normalRadius = max(5, (int) (($item['donor']->normal_travel_radius ?? 5)));
+
+            return (float) $distanceKm <= $normalRadius;
+        });
+
+        if ($eligibleWithinNormalRadius !== null) {
+            return;
+        }
+
+        $baseDistanceLimit = (int) ($this->distanceLimitKm ?? DonorFilterService::DEFAULT_DISTANCE_LIMIT_KM);
+        $extendedDistanceLimit = (int) max($baseDistanceLimit, (int) round(PASTMatch::DEFAULT_DISTANCE_LIMIT_KM));
+
+        $extendedCandidates = $donorFilterService->filterForRequest(
+            requestedBloodType: $bloodRequest->blood_type,
+            requestLatitude: $bloodRequest->latitude !== null ? (float) $bloodRequest->latitude : null,
+            requestLongitude: $bloodRequest->longitude !== null ? (float) $bloodRequest->longitude : null,
+            distanceLimitKm: $extendedDistanceLimit,
+            requestCity: $bloodRequest->city,
+            excludingRequestId: $bloodRequest->id,
+            allowEmergencyTravel: true,
+            requestUrgencyLevel: $bloodRequest->urgency_level,
+            requestIsEmergency: (bool) $bloodRequest->is_emergency,
+        );
+
+        $longDistanceCandidates = $extendedCandidates
+            ->filter(function (array $item): bool {
+                $distanceKm = $item['distance_km'] ?? null;
+
+                if ($distanceKm === null) {
+                    return false;
+                }
+
+                $normalRadius = max(5, (int) (($item['donor']->normal_travel_radius ?? 5)));
+
+                return (float) $distanceKm > $normalRadius;
+            })
+            ->values();
+
+        if ($longDistanceCandidates->isEmpty()) {
+            return;
+        }
+
+        foreach ($longDistanceCandidates as $candidate) {
+            $donor = $candidate['donor'];
+
+            $acceptance = DonorRequestAcceptance::query()->firstOrCreate(
+                [
+                    'donor_id' => $donor->id,
+                    'blood_request_id' => $bloodRequest->id,
+                ],
+                [
+                    'distance_km_at_acceptance' => (float) ($candidate['distance_km'] ?? 0),
+                    'status' => 'pending',
+                    'accepted_at' => null,
+                ]
+            );
+
+            if ($acceptance->wasRecentlyCreated && $cooldownService->canNotifyDonor($donor)) {
+                $notificationService->sendTravelAcceptanceRequest(
+                    donor: $donor,
+                    bloodRequest: $bloodRequest,
+                    distanceKm: (float) ($candidate['distance_km'] ?? 0),
+                );
+
+                $cooldownService->recordAlert($bloodRequest, $donor, 0);
+            }
+        }
     }
 }

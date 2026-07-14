@@ -11,6 +11,7 @@ use App\Models\BloodRequest;
 use App\Models\Donor;
 use App\Models\DonorAlertLog;
 use App\Models\NationalPartnerSyncLog;
+use App\Models\DonorRequestAcceptance;
 use App\Models\DonorRequestResponse;
 use App\Models\HospitalInviteCode;
 use App\Models\NotificationDelivery;
@@ -1866,6 +1867,46 @@ class AdminPanelController extends Controller
     return response()->json(['data' => ['ranked_donors' => $rankedDonors]]);
 }
 
+    public function requestTravelAcceptances(BloodRequest $bloodRequest): JsonResponse
+    {
+        DonorRequestAcceptance::expirePendingForRequest($bloodRequest);
+
+        $acceptances = DonorRequestAcceptance::query()
+            ->where('blood_request_id', $bloodRequest->id)
+            ->with('donor:id,name,blood_type,city')
+            ->latest('updated_at')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'blood_request_id' => $bloodRequest->id,
+                'is_emergency' => (bool) $bloodRequest->is_emergency,
+                'is_expired' => $bloodRequest->expiry_time !== null && now()->greaterThan($bloodRequest->expiry_time),
+                'summary' => [
+                    'total' => $acceptances->count(),
+                    'pending' => $acceptances->where('status', 'pending')->count(),
+                    'accepted' => $acceptances->where('status', 'accepted')->count(),
+                    'declined' => $acceptances->where('status', 'declined')->count(),
+                ],
+                'items' => $acceptances->map(function (DonorRequestAcceptance $acceptance): array {
+                    return [
+                        'id' => $acceptance->id,
+                        'donor_id' => $acceptance->donor_id,
+                        'donor_name' => $acceptance->donor?->name,
+                        'donor_blood_type' => $acceptance->donor?->blood_type,
+                        'donor_city' => $acceptance->donor?->city,
+                        'distance_km_at_acceptance' => $acceptance->distance_km_at_acceptance,
+                        'status' => $acceptance->status,
+                        'accepted_at' => optional($acceptance->accepted_at)?->toISOString(),
+                        'updated_at' => optional($acceptance->updated_at)?->toISOString(),
+                    ];
+                })->values(),
+            ],
+            'message' => 'Request travel acceptances retrieved successfully.',
+        ]);
+    }
+
     public function pastMatchRequestOptions(Request $request): JsonResponse
     {
         $search = trim((string) $request->string('search', ''));
@@ -2106,6 +2147,7 @@ class AdminPanelController extends Controller
 
         $rankedCandidates = $pastMatch->rankDonors($filteredDonors, [
             'urgency_level' => $bloodRequest->urgency_level,
+            'blood_request_id' => $bloodRequest->id,
         ])->values();
         $matches = $bloodRequest->matches()->with('donor')->orderBy('rank')->get();
         $alerts = DonorAlertLog::query()

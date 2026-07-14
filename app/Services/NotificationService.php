@@ -77,6 +77,37 @@ class NotificationService
         );
     }
 
+    public function sendTravelAcceptanceRequest(
+        Donor $donor,
+        BloodRequest $bloodRequest,
+        float $distanceKm
+    ): void {
+        $title = 'Emergency Travel Confirmation Needed';
+        $message = sprintf(
+            "Emergency request for %s at %s is %.2fkm away. Can you travel farther than your normal radius for this request?",
+            $bloodRequest->blood_type,
+            $bloodRequest->hospital_name,
+            $distanceKm
+        );
+
+        $payload = [
+            'type' => 'emergency_travel_acceptance_request',
+            'blood_request_id' => $bloodRequest->id,
+            'donor_id' => $donor->id,
+            'distance_km' => round($distanceKm, 2),
+            'action' => '/api/blood-requests/'.$bloodRequest->id.'/acceptances',
+        ];
+
+        $this->sendWithFallback(
+            user: $donor->user,
+            smsTarget: $donor->phone ?? $donor->contact_number,
+            type: 'emergency_travel_acceptance_request',
+            title: $title,
+            message: $message,
+            data: $payload,
+        );
+    }
+
     public function sendRequestReminder(Donor $donor, BloodRequest $bloodRequest): void
     {
         $title = 'Blood Request Reminder';

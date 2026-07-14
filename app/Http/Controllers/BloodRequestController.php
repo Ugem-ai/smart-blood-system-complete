@@ -69,7 +69,11 @@ class BloodRequestController extends Controller
                 requestUrgencyLevel: $bloodRequest->urgency_level,
                 requestIsEmergency: $bloodRequest->is_emergency,
             ),
-            ['urgency_level' => $bloodRequest->urgency_level, 'request_chapter_name' => $requestChapterName]
+            [
+                'urgency_level' => $bloodRequest->urgency_level,
+                'request_chapter_name' => $requestChapterName,
+                'blood_request_id' => $bloodRequest->id,
+            ]
         )->take(10)->values();
 
         foreach ($topMatches as $index => $match) {

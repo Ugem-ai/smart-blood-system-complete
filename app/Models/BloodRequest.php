@@ -84,6 +84,11 @@ class BloodRequest extends Model
         return $this->hasMany(DonorRequestResponse::class);
     }
 
+    public function donorRequestAcceptances(): HasMany
+    {
+        return $this->hasMany(DonorRequestAcceptance::class);
+    }
+
     public function matches(): HasMany
     {
         return $this->hasMany(RequestMatch::class, 'blood_request_id');

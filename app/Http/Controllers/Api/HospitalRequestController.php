@@ -9,6 +9,7 @@ use App\Models\ActivityLog;
 use App\Models\DonationHistory;
 use App\Models\Donor;
 use App\Models\BloodRequest;
+use App\Models\DonorRequestAcceptance;
 use App\Models\RequestMatch;
 use App\Services\BloodRequestService;
 use App\Services\DonorAllocationService;
@@ -422,6 +423,67 @@ class HospitalRequestController extends Controller
                 'donors'           => $donors,
             ],
             'message' => 'Matched donors retrieved successfully.',
+        ]);
+    }
+
+    public function travelAcceptances(Request $request, BloodRequest $bloodRequest): JsonResponse
+    {
+        $hospital = $request->user()->hospitalProfile;
+
+        if (! $hospital) {
+            return response()->json([
+                'success' => false,
+                'data' => null,
+                'message' => 'Hospital profile not found.',
+            ], 404);
+        }
+
+        if ((int) $bloodRequest->hospital_id !== (int) $hospital->id) {
+            return response()->json([
+                'success' => false,
+                'data' => null,
+                'message' => 'Unauthorized request scope.',
+            ], 403);
+        }
+
+        DonorRequestAcceptance::expirePendingForRequest($bloodRequest);
+
+        $acceptances = DonorRequestAcceptance::query()
+            ->where('blood_request_id', $bloodRequest->id)
+            ->with('donor:id,name,blood_type,city')
+            ->latest('updated_at')
+            ->get();
+
+        ActivityLog::record($request->user()?->id, 'hospital.request.travel-acceptances.accessed', [
+            'hospital_id' => $hospital->id,
+            'blood_request_id' => $bloodRequest->id,
+            'count' => $acceptances->count(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'blood_request_id' => $bloodRequest->id,
+                'summary' => [
+                    'total' => $acceptances->count(),
+                    'pending' => $acceptances->where('status', 'pending')->count(),
+                    'accepted' => $acceptances->where('status', 'accepted')->count(),
+                    'declined' => $acceptances->where('status', 'declined')->count(),
+                ],
+                'items' => $acceptances->map(function (DonorRequestAcceptance $acceptance): array {
+                    return [
+                        'donor_id' => $acceptance->donor_id,
+                        'donor_name' => $acceptance->donor?->name,
+                        'donor_blood_type' => $acceptance->donor?->blood_type,
+                        'donor_city' => $acceptance->donor?->city,
+                        'distance_km_at_acceptance' => $acceptance->distance_km_at_acceptance,
+                        'status' => $acceptance->status,
+                        'accepted_at' => optional($acceptance->accepted_at)?->toISOString(),
+                        'updated_at' => optional($acceptance->updated_at)?->toISOString(),
+                    ];
+                })->values(),
+            ],
+            'message' => 'Travel acceptances retrieved successfully.',
         ]);
     }
 
