@@ -1,9 +1,11 @@
 import axios from 'axios';
-import { clearAuthSession, getAuthSession } from './auth';
+import { clearAuthSession, getAuthSession } from './auth.js';
+
+export const API_TIMEOUT_MS = 60000;
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 15000,
+  timeout: API_TIMEOUT_MS,
   headers: {
     Accept: 'application/json',
   },
