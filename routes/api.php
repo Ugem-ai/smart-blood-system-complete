@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ChapterInventoryController;
 use App\Http\Controllers\Api\ChapterPortalController;
 use App\Http\Controllers\Api\InventoryTransferController;
 use App\Http\Controllers\Api\MonitoringController;
+use App\Http\Controllers\RunQueueController;
 use Illuminate\Support\Facades\Route;
 
 // Root-level shortcuts for Vue app
@@ -103,6 +104,8 @@ Route::middleware(['auth:sanctum', 'role:donor', 'audit', 'monitor', 'throttle:6
     Route::post('/donor/decline', [DonorResponseController::class, 'decline']);
     Route::post('/blood-requests/{bloodRequest}/acceptances', [DonorRequestAcceptanceController::class, 'store']);
 });
+
+Route::post('/run-queue', RunQueueController::class);
 
 Route::middleware('throttle:10,1')->post('/hospital/register', [HospitalProfileController::class, 'register']);
 

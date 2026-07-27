@@ -321,6 +321,7 @@ class NotificationService
                     'Authorization' => 'key='.$fcmServerKey,
                 ])
                     ->acceptJson()
+                    ->timeout(10)
                     ->post($fcmEndpoint, [
                         'registration_ids' => $tokens->all(),
                         'notification' => [
@@ -402,6 +403,7 @@ class NotificationService
                     'Authorization' => 'Key '.$restApiKey,
                 ])
                     ->acceptJson()
+                    ->timeout(10)
                     ->post($oneSignalEndpoint, [
                         'app_id' => $appId,
                         'include_subscription_ids' => $chunkTokens,
