@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\ProcessBloodRequestMatchingJob;
+use App\Jobs\ProcessDonorResponseJob;
 use App\Jobs\SendHospitalResponseUpdateJob;
 use App\Models\BloodRequest;
 use App\Models\Donor;
@@ -403,11 +404,10 @@ class BloodRequestApiTest extends TestCase
             'blood_request_id' => $bloodRequest->id,
         ]);
 
-        $response->assertOk()->assertJsonPath('success', true);
+        $response->assertStatus(202)->assertJsonPath('success', true);
 
-        Queue::assertPushed(SendHospitalResponseUpdateJob::class, function (SendHospitalResponseUpdateJob $job) use ($hospital, $bloodRequest, $donor) {
-            return $job->hospitalId === $hospital->id
-                && $job->bloodRequestId === $bloodRequest->id
+        Queue::assertPushed(ProcessDonorResponseJob::class, function (ProcessDonorResponseJob $job) use ($hospital, $bloodRequest, $donor) {
+            return $job->bloodRequestId === $bloodRequest->id
                 && $job->donorId === $donor->id
                 && $job->response === 'accepted';
         });

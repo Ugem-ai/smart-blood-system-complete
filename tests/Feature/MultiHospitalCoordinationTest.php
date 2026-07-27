@@ -75,7 +75,7 @@ class MultiHospitalCoordinationTest extends TestCase
             'blood_request_id' => $requestA->id,
         ]);
 
-        $acceptA->assertOk();
+        $acceptA->assertStatus(202);
         $acceptA->assertJsonPath('data.coordination.coordination_status', 'reserved_here');
 
         $acceptB = $this->postJson('/api/donor/accept', [
@@ -129,7 +129,7 @@ class MultiHospitalCoordinationTest extends TestCase
         Sanctum::actingAs($donorUser);
         $this->postJson('/api/donor/accept', [
             'blood_request_id' => $requestA->id,
-        ])->assertOk();
+        ])->assertStatus(202);
 
         $requestB = $this->makeRequest($hospitalB, 'O+');
 
@@ -342,7 +342,7 @@ class MultiHospitalCoordinationTest extends TestCase
         Sanctum::actingAs($donorUser);
         $this->postJson('/api/donor/accept', [
             'blood_request_id' => $requestA->id,
-        ])->assertOk();
+        ])->assertStatus(202);
 
         $this->actingAs($hospitalUserA)
             ->patch(route('hospital.requests.update-status', $requestA), [
@@ -373,7 +373,7 @@ class MultiHospitalCoordinationTest extends TestCase
         Sanctum::actingAs($donorUser);
         $this->postJson('/api/donor/accept', [
             'blood_request_id' => $requestB->id,
-        ])->assertOk()->assertJsonPath('data.coordination.coordination_status', 'reserved_here');
+        ])->assertStatus(202)->assertJsonPath('data.coordination.coordination_status', 'reserved_here');
     }
 
     private function makeHospital(string $email, string $name): array

@@ -142,7 +142,7 @@ class SystemValidationPipelineTest extends TestCase
                 'blood_request_id' => $bloodRequest->id,
             ]);
 
-        $accept->assertOk();
+        $accept->assertStatus(202);
         $this->assertDatabaseHas('donor_request_responses', [
             'blood_request_id' => $bloodRequest->id,
             'donor_id' => $donor->id,

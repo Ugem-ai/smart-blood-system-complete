@@ -110,7 +110,7 @@ class DonorResponseController extends Controller
         }
 
         if ($bloodRequest->hospital) {
-            ProcessDonorResponseJob::dispatch(
+            ProcessDonorResponseJob::dispatchAfterResponse(
                 $bloodRequest->id,
                 $donor->id,
                 $response,
