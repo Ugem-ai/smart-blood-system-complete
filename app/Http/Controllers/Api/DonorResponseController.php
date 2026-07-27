@@ -119,7 +119,7 @@ class DonorResponseController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Response recorded.',
+            'message' => 'Response recorded and post-processing queued.',
             'data' => [
                 'blood_request_id' => $bloodRequest->id,
                 'donor_id' => $donor->id,

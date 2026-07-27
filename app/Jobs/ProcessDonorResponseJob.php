@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\SendHospitalResponseUpdateJob;
 use App\Models\BloodRequest;
 use App\Models\Donor;
 use App\Services\BloodRequestService;
