@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Jobs\ProcessBloodRequestMatchingJob;
+use App\Jobs\SendHospitalResponseUpdateJob;
 use App\Models\BloodRequest;
+use App\Models\Donor;
 use App\Models\Hospital;
 use App\Models\RequestMatch;
 use App\Models\User;
@@ -361,6 +363,53 @@ class BloodRequestApiTest extends TestCase
         Queue::assertPushed(ProcessBloodRequestMatchingJob::class, function (ProcessBloodRequestMatchingJob $job) use ($bloodRequest, $user) {
             return $job->bloodRequestId === $bloodRequest->id
                 && $job->actorUserId === $user->id;
+        });
+    }
+
+    public function test_donor_accept_request_dispatches_hospital_response_update_job(): void
+    {
+        Queue::fake();
+
+        [$user, $hospital] = $this->approvedHospitalUser('notifhosp');
+
+        $bloodRequest = BloodRequest::create([
+            'hospital_id' => $hospital->id,
+            'hospital_name' => $hospital->hospital_name,
+            'blood_type' => 'A+',
+            'quantity' => 1,
+            'urgency_level' => 'high',
+            'city' => 'Manila',
+            'requested_units' => 1,
+            'status' => 'pending',
+        ]);
+
+        $donorUser = User::factory()->create(['role' => 'donor']);
+        $donor = Donor::create([
+            'user_id' => $donorUser->id,
+            'name' => $donorUser->name,
+            'blood_type' => 'A+',
+            'city' => 'Manila',
+            'contact_number' => '09179999999',
+            'email' => $donorUser->email,
+            'password' => 'password',
+            'availability' => true,
+            'privacy_consent_at' => now(),
+            'last_donation_date' => now()->subDays(60)->toDateString(),
+        ]);
+
+        Sanctum::actingAs($donorUser);
+
+        $response = $this->postJson('/api/donor/accept', [
+            'blood_request_id' => $bloodRequest->id,
+        ]);
+
+        $response->assertOk()->assertJsonPath('success', true);
+
+        Queue::assertPushed(SendHospitalResponseUpdateJob::class, function (SendHospitalResponseUpdateJob $job) use ($hospital, $bloodRequest, $donor) {
+            return $job->hospitalId === $hospital->id
+                && $job->bloodRequestId === $bloodRequest->id
+                && $job->donorId === $donor->id
+                && $job->response === 'accepted';
         });
     }
 

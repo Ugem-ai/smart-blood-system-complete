@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendHospitalResponseUpdateJob;
 use App\Models\BloodRequest;
 use App\Models\DonorRequestResponse;
 use App\Models\RequestMatch;
@@ -108,12 +109,12 @@ class DonorResponseController extends Controller
         }
 
         if ($bloodRequest->hospital) {
-            $notificationService->sendHospitalResponseUpdate(
-                $bloodRequest->hospital,
-                $bloodRequest,
-                $donor,
+            SendHospitalResponseUpdateJob::dispatch(
+                $bloodRequest->hospital->id,
+                $bloodRequest->id,
+                $donor->id,
                 $response
-            );
+            )->onQueue('notifications');
         }
 
         $bloodRequestService->syncTrackingCounts($bloodRequest->fresh());
