@@ -3363,9 +3363,16 @@ class AdminPanelController extends Controller
             $settings = app(SystemSettingsService::class)->current();
             $weights = $auditScores['weights'] ?? app(SystemSettingsService::class)->pastMatchWeights();
             // Ensure legacy-shaped weights (priority/availability/distance/time) are available for the admin payload
-            $legacyWeights = is_array($weights) && array_key_exists('priority', $weights)
-                ? $weights
-                : ($settings['past_match_weights'] ?? ['priority' => 0.0, 'availability' => 0.0, 'distance' => 0.0, 'time' => 0.0]);
+            $defaultLegacyWeights = [
+                'priority' => 0.0,
+                'availability' => 0.0,
+                'distance' => 0.0,
+                'time' => 0.0,
+            ];
+            $legacyWeights = array_merge(
+                $defaultLegacyWeights,
+                is_array($weights) ? $weights : ($settings['past_match_weights'] ?? [])
+            );
             $responseStatus = $responseEntry
                 ? Str::headline((string) $responseEntry->response)
                 : ($alertEntries->isNotEmpty() || $storedMatch ? 'Pending' : 'Queued');
