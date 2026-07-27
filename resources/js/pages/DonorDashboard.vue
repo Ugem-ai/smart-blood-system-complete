@@ -46,7 +46,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import Sidebar from '../components/donor/Sidebar.vue';
 import Topbar from '../components/donor/Topbar.vue';
 import ToastStack from '../components/donor/ToastStack.vue';
@@ -63,6 +63,7 @@ import DonorSettings from '../components/donor/DonorSettings.vue';
 import { getAuthSession, logoutSession } from '../lib/auth';
 
 const router = useRouter();
+const route = useRoute();
 
 // State
 const activeModule = ref('dashboard');
@@ -157,6 +158,14 @@ onMounted(() => {
   }
   if (user && user.blood_type) {
     bloodType.value = user.blood_type;
+  }
+
+  const requestedModule = Array.isArray(route.query.module)
+    ? route.query.module[0]
+    : route.query.module;
+
+  if (requestedModule && moduleComponentMap[requestedModule]) {
+    activeModule.value = requestedModule;
   }
 });
 </script>

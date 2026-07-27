@@ -22,6 +22,7 @@ const routes = [
   { path: '/admin/dashboard', component: AdminDashboard, meta: { requiresAuth: true, role: 'admin' } },
   { path: '/hospital/dashboard', component: HospitalDashboard, meta: { requiresAuth: true, role: 'hospital' } },
   { path: '/donor/dashboard', component: DonorDashboard, meta: { requiresAuth: true, role: 'donor' } },
+  { path: '/donor/emergency-requests', redirect: '/donor/dashboard?module=requests', meta: { requiresAuth: true, role: 'donor' } },
   { path: '/profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/settings', component: Profile, meta: { requiresAuth: true } },
   { path: '/confirm-password', component: ConfirmPassword, meta: { requiresAuth: true } },
