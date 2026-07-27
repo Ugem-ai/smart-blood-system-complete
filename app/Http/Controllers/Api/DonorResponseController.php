@@ -127,6 +127,6 @@ class DonorResponseController extends Controller
                 'request_status' => $bloodRequest->status,
                 'coordination' => $allocationService->coordinationStateForDonorOnRequest($donor->id, $bloodRequest->id),
             ],
-        ]);
+        ], 202);
     }
 }
