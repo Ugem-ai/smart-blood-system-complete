@@ -3642,6 +3642,9 @@ class AdminPanelController extends Controller
 
     private function buildPastMatchAnalytics(BloodRequest $bloodRequest, $alerts, $responses, array $escalation, array $matchingState): array
     {
+        $alerts = collect($alerts);
+        $responses = collect($responses);
+
         $createdAt = $bloodRequest->created_at;
         $events = $alerts->map(fn (DonorAlertLog $alert) => ['type' => 'alert', 'at' => $alert->sent_at])
             ->merge($responses->map(fn (DonorRequestResponse $response) => ['type' => 'response', 'at' => $response->responded_at]))
